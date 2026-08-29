@@ -1,0 +1,31 @@
+# Secrets and environment
+.env
+.env.*
+*.key
+secrets.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Raw/restricted data
+/data/raw/
+/data/private/
+/data/interim/respondent_level/
+
+# Model outputs that may contain respondent-level information
+/outputs/raw_model_responses/
+/outputs/respondent_level/
+
+# Local logs and caches
+*.log
+.cache/
+.DS_Store
+Thumbs.db
+
+# Office temporary files
+~$*
