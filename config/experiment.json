@@ -1,32 +1,36 @@
 {
   "seed": 29082026,
-  "analysis_population": {
-    "minimum_age": 15
-  },
+  "analysis_population": {"minimum_age": 15, "subgroup_gender_scope": ["male", "female"]},
   "sample": {
-    "n": 400,
+    "n": 1000,
+    "method": "systematic PPS within strata",
     "stratify_by": ["sector", "gender_binary", "age_group"],
+    "allocation": "proportional to weighted population",
     "age_groups": ["15-24", "25-34", "35-44", "45-59", "60+"]
   },
-  "persona_conditions": ["thin", "rich"],
+  "persona_conditions": ["rich", "thin"],
   "primary_model": "openai/gpt-5.6-luna",
+  "primary_provider": "openai",
   "robustness_models": [
-    "google/gemini-3.7-flash",
-    "anthropic/claude-sonnet-5"
+    {"model": "google/gemini-3.7-flash", "provider": "google-vertex"},
+    {"model": "anthropic/claude-sonnet-5", "provider": "anthropic"}
   ],
   "robustness_subset_n": 120,
   "outcomes": [
+    "mobile_ability",
+    "mobile_3m",
     "computer_ability",
     "internet_ability",
     "internet_3m",
-    "email_ability",
-    "digital_payment_ability",
     "copy_paste"
   ],
   "primary_tolerance_percentage_points": 5.0,
   "prompting": {
     "ask_for_explanation": false,
     "collect_probability": true,
-    "temperature": 0.2
+    "structured_output": true,
+    "temperature": null,
+    "provider_fallbacks": false,
+    "provider_data_collection": "deny"
   }
 }
