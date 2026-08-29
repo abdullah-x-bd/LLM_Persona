@@ -1,0 +1,32 @@
+name: Derive production bundle public key
+
+on:
+  push:
+    paths:
+      - '.github/workflows/derive_bundle_pubkey.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pynacl
+      - name: Print public key only
+        run: |
+          python - <<'PY'
+          import os, hashlib, base64
+          from nacl.public import PrivateKey
+          secret=os.environ['OPENROUTER_API_KEY']
+          seed=hashlib.sha256(('LLM_Persona_bundle_v2|'+secret).encode()).digest()
+          sk=PrivateKey(seed)
+          print('BUNDLE_PUBLIC_KEY_B64='+base64.b64encode(bytes(sk.public_key)).decode())
+          PY
