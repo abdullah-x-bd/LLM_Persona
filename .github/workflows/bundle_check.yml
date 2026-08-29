@@ -1,0 +1,53 @@
+name: Encrypted bundle validation
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bundle_check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install crypto dependency
+        run: pip install cryptography
+      - name: Reassemble encrypted persona bundle
+        run: cat data/encrypted/cams_personas_v1.part01.b64 data/encrypted/cams_personas_v1.part02.b64 > /tmp/cams_personas_v1.enc.b64
+      - name: Try authenticated decryption using existing OpenRouter secret
+        run: |
+          python src/secure_bundle.py decrypt --in /tmp/cams_personas_v1.enc.b64 --out /tmp/plain.bundle --secret-env OPENROUTER_API_KEY
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          p=Path('/tmp/plain.bundle')
+          b=p.read_bytes()
+          info={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),'is_zip':zipfile.is_zipfile(p)}
+          if zipfile.is_zipfile(p):
+              with zipfile.ZipFile(p) as z:
+                  info['members']=z.namelist()
+          else:
+              # Validate structure without printing any plaintext.
+              text=b.decode('utf-8')
+              lines=[x for x in text.splitlines() if x.strip()]
+              info['utf8']=True
+              info['lines']=len(lines)
+              try:
+                  first=json.loads(lines[0]) if lines else None
+                  info['jsonl']=isinstance(first,dict)
+                  info['keys']=sorted(first.keys()) if isinstance(first,dict) else []
+              except Exception:
+                  info['jsonl']=False
+          print(json.dumps(info,indent=2))
+          assert len(b)>100, 'Decrypted bundle unexpectedly small'
+          PY
