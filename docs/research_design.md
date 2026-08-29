@@ -1,72 +1,76 @@
-# Frozen Research Design Draft
+# Frozen Research Design
 
 ## Research question
 How accurately can persona-conditioned LLMs reconstruct held-out survey outcomes from actual NSO respondents, and is the resulting accuracy sufficient to justify prospective testing as a rapid preliminary policy-evidence tool for Indian policymaking?
 
 ## Primary dataset
-NSO Comprehensive Annual Modular Survey (CAMS) 2022-23.
+NSO Comprehensive Annual Modular Survey (CAMS), NSS 79th Round, 2022-23.
 
-## Planned analytic sample
-Initial target: 400 respondents aged 15+, sampled reproducibly after variable and eligibility checks. The final sample size may be increased only before outcome evaluation.
+## Analytic sample
+The pre-inference sample is frozen at 1,000 respondents aged 15+. The design uses systematic probability-proportional-to-size sampling within 20 strata formed by rural/urban sector, male/female gender, and five age groups. Stratum sample allocation is proportional to the official weighted population. The seed is 29082026.
+
+This sample size was set before any LLM response was generated. A 1,000-person sample gives substantially better precision for a primary ±5 percentage-point policy-relevance benchmark than the earlier 400-person draft.
+
+## One-to-one matched design
+Each selected CAMS respondent is represented by one synthetic counterpart. The respondent's held-out outcomes remain hidden from the model. Every respondent-condition combination receives a fresh, isolated API request with no prior conversation context.
 
 ## Persona conditions
+### Rich matched persona
+A deterministic natural-language representation of legitimate pre-outcome characteristics from the same real respondent: age, gender, state, rural/urban residence, relationship to household head, marital status, formal education/enrolment status, recent economic activity, household size, household religion, social group, household language, and household MPCE quintile.
 
-### Thin persona
-Age, gender, state, and rural/urban residence.
+### Thin matched persona
+Age, gender, state, and rural/urban residence only.
 
-### Rich persona
-Thin persona variables plus eligible pre-outcome socioeconomic characteristics available in CAMS, such as marital status, education/enrolment, economic activity, household size, social group, household language, and household consumption/expenditure band.
+No device ownership, internet access, mobile usage, banking behavior, digital-skill variable, target outcome, or direct proxy that trivially reveals a held-out answer is included.
 
-No target outcome or direct proxy that trivially reveals the held-out answer may be included in persona construction.
+## Held-out outcomes
+The primary six outcomes are all defined over the full age-15+ analytic population, with questionnaire routing handled so structural skips imply a negative outcome only where logically and officially appropriate:
+1. Ability to use a mobile telephone.
+2. Mobile telephone use during the previous three months.
+3. Ability to use a computer/laptop/tablet or similar device.
+4. Ability to use the internet.
+5. Internet use during the previous three months.
+6. Execution of copy-and-paste skill during the previous three months.
 
-## Candidate held-out outcomes
-1. Ability to use a computer/laptop/tablet.
-2. Ability to use the internet.
-3. Internet use during the previous three months.
-4. Ability to send/receive email.
-5. Ability to perform digital banking/payment activity.
-6. Ability to use copy-and-paste tools.
+Email and digital-payment ability were removed from the primary battery during pre-inference auditing because their CAMS questionnaire denominators are conditional. Treating structural skips as negative would not reproduce the official denominator.
 
-Exact variable names and eligibility universes will be verified against the downloaded codebook before generation.
+## Pre-inference benchmark validation
+Using the official CAMS multiplier, the full microdata reproduce published national figures, including approximately 57.5% internet use in the previous three months and 46.1% execution of copy-and-paste skill among persons aged 15+.
+
+The frozen 1,000-person PPS validation sample is also highly representative of the full weighted microdata on all six target outcomes. Before any LLM inference, the absolute sample-to-full-data difference is below 0.5 percentage points for every primary outcome.
 
 ## Hypotheses
-
 ### H1 Population fidelity
-LLM-persona estimates will reproduce a majority of selected NSO population estimates within a pre-specified policy-relevant error margin.
+LLM-persona estimates will reproduce a majority of selected matched-human population estimates within a pre-specified ±5 percentage-point policy-relevance margin.
 
 ### H2 Subgroup fidelity
-LLM-persona estimates will reproduce the direction and approximate magnitude of major gender, rural/urban, and age disparities observed in NSO data.
+LLM-persona estimates will reproduce the direction and approximate magnitude of major gender, rural/urban, and age disparities observed among the matched human respondents and in the broader NSO data.
 
 ### H3 Persona enrichment
-Rich socioeconomic personas will produce lower estimation error than thin demographic personas.
+Rich socioeconomic personas will produce lower aggregate estimation error than thin demographic personas.
 
 ### H4 Individual fidelity
-Matched LLM predictions will outperform a naive majority-class baseline, while individual correspondence may remain weaker than population-level correspondence.
+Matched LLM predictions will outperform a naive majority-class baseline at the individual level, while individual correspondence may remain weaker than population-level correspondence.
 
 ## Primary metrics
-- Weighted NSO prevalence by outcome.
-- Weighted LLM-estimated prevalence by outcome.
-- Absolute error in percentage points.
-- Mean absolute error across outcomes.
-- Proportion of outcomes within 3, 5, and 10 percentage points.
-- Gender, rural/urban, and age-gap direction and magnitude error.
-- Individual accuracy and balanced accuracy.
-- Thin-versus-rich paired comparison.
+- Weighted matched-human prevalence by outcome.
+- Weighted LLM prevalence from hard yes/no responses.
+- Weighted LLM prevalence from probability-of-yes responses.
+- Absolute error in percentage points and mean absolute error across outcomes.
+- Number/proportion of outcomes within 3, 5, and 10 percentage points.
+- Gender, rural/urban, and age subgroup fidelity.
+- Weighted individual accuracy, sensitivity, specificity, and Brier score.
+- Majority-class baseline.
+- Rich-versus-thin comparison.
 
 ## Primary tolerance
-The primary interpretive benchmark is ±5 percentage points for aggregate estimates. This is an operational policy-relevance threshold for the proof-of-concept, not a universal statistical standard.
+The primary interpretive benchmark is ±5 percentage points for aggregate estimates. This is an operational proof-of-concept threshold, not a universal statistical standard.
 
-## Baselines
-At minimum, compare individual predictions against the majority-class baseline. If feasible, add a logistic-regression benchmark trained only on the same persona covariates.
-
-## Prompt discipline
-The model prompt, question wording, persona construction rules, outcome definitions, sample seed, and evaluation metrics must be frozen before comparing generated responses with held-out NSO outcomes.
-
-## Data leakage rule
-All target outcomes and variables that directly disclose or trivially imply the target response must be withheld from the persona prompt.
+## Prompt and API discipline
+Question wording, persona construction, sample membership, sample seed, outcome definitions, response schema, model identifiers, and evaluation metrics are frozen before paid inference. Request order is reproducibly randomized. Each synthetic respondent is generated in an independent request. Provider fallback is disabled for the main runs so model/provider identity is stable.
 
 ## Policy interpretation
-Strong retrospective performance would support prospective shadow-survey validation, not replacement of official human surveys. Mixed performance should lead to domain- or subgroup-specific recommendations. Weak performance should constrain use to lower-stakes exploratory tasks such as questionnaire pretesting or hypothesis generation.
+Strong retrospective performance supports a prospective shadow-survey pilot in which synthetic predictions are generated before corresponding human survey results become available. It does not support replacing official human surveys. Mixed performance should lead to domain- or subgroup-specific recommendations. Weak performance should constrain use to lower-stakes exploratory tasks such as questionnaire pretesting or hypothesis generation.
 
 ## Secondary human survey
-A small convenience sample may be used only as an exploratory acceptability study concerning possible uses of LLM-generated preliminary estimates. It is not a nationally representative validation sample.
+A small convenience sample may be used only as an exploratory acceptability study about possible uses of LLM-generated preliminary estimates. It is not a nationally representative validation sample.
