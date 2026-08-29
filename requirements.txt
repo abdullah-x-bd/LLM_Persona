@@ -1,0 +1,10 @@
+pandas>=2.2
+numpy>=2.0
+scipy>=1.14
+statsmodels>=0.14
+scikit-learn>=1.5
+matplotlib>=3.9
+openpyxl>=3.1
+pyarrow>=17.0
+python-dotenv>=1.0
+openai>=1.0
