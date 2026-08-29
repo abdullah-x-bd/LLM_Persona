@@ -5,8 +5,14 @@ import numpy as np,pandas as pd
 OUTCOMES=["mobile_ability","mobile_3m","computer_ability","internet_ability","internet_3m","copy_paste"]
 def wmean(x,w):x=np.asarray(x,float);w=np.asarray(w,float);return float(np.sum(x*w)/np.sum(w))
 def load_jsonl(p):return [json.loads(x) for x in Path(p).read_text(encoding="utf-8").splitlines() if x.strip()]
+def latest_successes(rows):
+    keep={}
+    for r in rows:
+        if "error" in r:continue
+        keep[(r["anon_id"],r["condition"])]=r
+    return list(keep.values())
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument("--sample",required=True);ap.add_argument("--results",required=True);ap.add_argument("--out",required=True);a=ap.parse_args();out=Path(a.out);out.mkdir(parents=True,exist_ok=True);sample=pd.read_csv(a.sample);rows=[r for r in load_jsonl(a.results) if "error" not in r]
+    ap=argparse.ArgumentParser();ap.add_argument("--sample",required=True);ap.add_argument("--results",required=True);ap.add_argument("--out",required=True);a=ap.parse_args();out=Path(a.out);out.mkdir(parents=True,exist_ok=True);sample=pd.read_csv(a.sample);rows=latest_successes(load_jsonl(a.results))
     if not rows:raise ValueError("No successful model results")
     flat=[]
     for r in rows:
