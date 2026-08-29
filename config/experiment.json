@@ -1,0 +1,32 @@
+{
+  "seed": 29082026,
+  "analysis_population": {
+    "minimum_age": 15
+  },
+  "sample": {
+    "n": 400,
+    "stratify_by": ["sector", "gender_binary", "age_group"],
+    "age_groups": ["15-24", "25-34", "35-44", "45-59", "60+"]
+  },
+  "persona_conditions": ["thin", "rich"],
+  "primary_model": "openai/gpt-5.6-luna",
+  "robustness_models": [
+    "google/gemini-3.7-flash",
+    "anthropic/claude-sonnet-5"
+  ],
+  "robustness_subset_n": 120,
+  "outcomes": [
+    "computer_ability",
+    "internet_ability",
+    "internet_3m",
+    "email_ability",
+    "digital_payment_ability",
+    "copy_paste"
+  ],
+  "primary_tolerance_percentage_points": 5.0,
+  "prompting": {
+    "ask_for_explanation": false,
+    "collect_probability": true,
+    "temperature": 0.2
+  }
+}
