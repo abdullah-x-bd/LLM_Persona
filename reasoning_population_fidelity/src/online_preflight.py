@@ -5,9 +5,10 @@ from pathlib import Path
 HERE=Path(__file__).resolve().parents[1]
 CONFIG=HERE/"config"/"preflight.json"
 BASE="https://openrouter.ai/api/v1"
+REQUIRED_PARAMS={"reasoning","response_format","temperature","top_p","max_tokens"}
 
 def get_json(url,key):
-    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-RPF-ZeroCost-Preflight/1.1"})
+    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-RPF-ZeroCost-Preflight/1.2"})
     with urllib.request.urlopen(req,timeout=30) as r: return json.loads(r.read().decode("utf-8"))
 
 def as_per_million(value):
@@ -24,9 +25,9 @@ def main():
     models=get_json(f"{BASE}/models",key).get("data",[]); by_id={m.get("id"):m for m in models}; model_id=cfg["primary_model"]["id"]
     if model_id not in by_id:
         print(f"FAIL: primary model not listed: {model_id}",file=sys.stderr); return 1
-    m=by_id[model_id]; params=set(m.get("supported_parameters") or []); missing={"reasoning","response_format"}-params
+    m=by_id[model_id]; params=set(m.get("supported_parameters") or []); missing=REQUIRED_PARAMS-params
     if missing:
-        print(f"FAIL: primary model missing parameters: {sorted(missing)}",file=sys.stderr); return 1
+        print(f"FAIL: primary model missing frozen parameters: {sorted(missing)}",file=sys.stderr); return 1
     pricing=m.get("pricing") or {}; live_in=as_per_million(pricing.get("prompt")); live_out=as_per_million(pricing.get("completion")); configured=cfg["primary_model"]; mult=float(configured["max_price_multiplier_before_block"])
     if live_in is None or live_out is None:
         print("FAIL: model pricing unavailable",file=sys.stderr); return 1
@@ -36,12 +37,13 @@ def main():
     ceiling=cfg["run_policy"]["provider_max_price_usd_per_million"]; eligible=[]
     for ep in endpoints:
         ep_params=set(ep.get("supported_parameters") or []); ep_pricing=ep.get("pricing") or {}; pin=as_per_million(ep_pricing.get("prompt")); pout=as_per_million(ep_pricing.get("completion"))
-        if not {"reasoning","response_format"}.issubset(ep_params): continue
+        if not REQUIRED_PARAMS.issubset(ep_params): continue
         if pin is None or pout is None: continue
         if pin<=float(ceiling["prompt"]) and pout<=float(ceiling["completion"]):
             eligible.append({"tag":ep.get("tag"),"name":ep.get("name") or ep.get("provider_name"),"input_per_m":pin,"output_per_m":pout,"status":ep.get("status")})
     if not eligible:
-        print("FAIL: no endpoint satisfies reasoning + structured output + hard price ceiling",file=sys.stderr); return 1
-    print(json.dumps({"status":"PASS","model":model_id,"supports_reasoning":True,"supports_response_format":True,"live_routed_input_usd_per_million":live_in,"live_routed_output_usd_per_million":live_out,"hard_provider_price_ceiling":ceiling,"eligible_endpoint_count":len(eligible),"eligible_endpoints":eligible[:8],"inference_endpoint_called":False},indent=2))
+        print("FAIL: no endpoint satisfies all frozen parameters plus hard price ceiling",file=sys.stderr); return 1
+    frozen=cfg["study_1"]["generation_settings"]
+    print(json.dumps({"status":"PASS","model":model_id,"required_parameters":sorted(REQUIRED_PARAMS),"generation_settings":frozen,"reasoning_efforts":[cfg["study_1"]["reasoning_conditions"][k]["effort"] for k in ("none","low","high")],"live_routed_input_usd_per_million":live_in,"live_routed_output_usd_per_million":live_out,"hard_provider_price_ceiling":ceiling,"eligible_endpoint_count":len(eligible),"eligible_endpoints":eligible[:8],"inference_endpoint_called":False},indent=2))
     print("PASS: zero-cost online preflight complete; no inference endpoint called"); return 0
 if __name__=="__main__": raise SystemExit(main())
