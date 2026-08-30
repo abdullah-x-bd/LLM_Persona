@@ -6,18 +6,19 @@
   "reserve_usd": 0.8,
   "primary_model": {
     "id": "qwen/qwen3.8-27b",
-    "input_usd_per_million": 0.35,
-    "output_usd_per_million": 2.75,
+    "input_usd_per_million": 0.425,
+    "output_usd_per_million": 2.55,
     "price_checked_utc": "2026-08-30",
+    "pricing_note": "OpenRouter live routed-model metadata; provider-specific prices vary",
     "max_price_multiplier_before_block": 1.15
   },
   "study_1": {
     "max_sample_n": 2500,
     "minimum_sample_n": 1000,
     "reasoning_conditions": {
-      "none": {"effort": "none", "max_completion_tokens": 260},
-      "low": {"effort": "low", "max_completion_tokens": 360},
-      "high": {"effort": "high", "max_completion_tokens": 460}
+      "none": {"effort": "none", "max_completion_tokens": 200},
+      "low": {"effort": "low", "max_completion_tokens": 300},
+      "high": {"effort": "high", "max_completion_tokens": 400}
     },
     "pilot_n_per_condition": 20,
     "study_budget_cap_usd": 7.8
