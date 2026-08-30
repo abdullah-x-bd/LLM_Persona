@@ -1,0 +1,7 @@
+authorized_from_paid_gate_run=33308992288
+paid_gate_run_number=8
+paid_gate_status=success
+freeze_request_id_set_sha256=ea35aaa74411aa05d67b72baf6a553287e61a3f923f04daf1329c7eab2d3b581
+freeze_requests_sha256=120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+study1_spend_cap_usd=7.80
+triggered_utc=2026-08-30T12:00:00Z
