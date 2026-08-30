@@ -32,6 +32,8 @@ def request_id(row: dict) -> str:
     payload = {
         "anon_id":row["anon_id"],
         "reasoning":row["reasoning"],
+        "reasoning_settings":row.get("reasoning_settings"),
+        "generation_settings":row.get("generation_settings"),
         "prompt_sha256":sha256_text(row["prompt"]),
         "schema_sha256":row["schema_sha256"],
         "model":row["model"]
