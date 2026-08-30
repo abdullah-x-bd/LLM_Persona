@@ -20,7 +20,7 @@ FORBIDDEN_PERSONA_TERMS = [
     "laptop","tablet","email","digital payment","copy-and-paste",
     "copy and paste","bank account","banking"
 ]
-ALLOWED_REASONING = {"none","low","high"}
+ALLOWED_REASONING = {"off","low","xhigh"}
 
 def canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",",":"), ensure_ascii=False)
@@ -77,7 +77,7 @@ def validate_response(obj: Any, outcomes=OUTCOMES) -> dict:
     return obj
 
 def deterministic_mock(row: dict) -> dict:
-    condition_shift = {"none":-0.03,"low":0.0,"high":0.03}[row["reasoning"]]
+    condition_shift = {"off":-0.03,"low":0.0,"xhigh":0.03}[row["reasoning"]]
     out = {}
     for k in OUTCOMES:
         raw = int.from_bytes(hashlib.sha256(
