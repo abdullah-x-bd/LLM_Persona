@@ -1,8 +1,9 @@
 authorized_by_user: true
 purpose: zero-retention AkashML FP8 retry-bounded paid canary then 20 respondent engineering pilot
 freeze_version: 3
-format_revision: compact-v1-medium1200-akashmlfp8-retry3
+format_revision: compact-v1-low900-medium1500-akashmlfp8-retry3
 conditions: off,low,medium
+completion_caps: off=250,low=900,medium=1500
 provider: akashml/fp8
 max_attempts_per_request: 3
-attempt: 6
+attempt: 7
