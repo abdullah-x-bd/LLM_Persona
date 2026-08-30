@@ -1,12 +1,14 @@
-# Frozen Study 1 analysis plan, version 2
+# Frozen Study 1 analysis plan, version 3
 
-Frozen before any paid inference for the reasoning-population-fidelity experiment.
+Frozen before the full Study 1 production run for the reasoning-population-fidelity experiment.
 
-Version 2 replaces the provisional `none / low / high` labels after the zero-cost OpenRouter model-metadata gate established that Qwen3.8 27B exposes enabled reasoning efforts `xhigh`, `medium`, and `low`, while thinking itself can be disabled. No paid inference had occurred when this correction was made. The final treatment is therefore `off / low / xhigh`.
+Version 3 replaces the version-2 `off / low / xhigh` treatment with `off / low / medium` solely because paid engineering canaries demonstrated an operational incompatibility with the `xhigh` arm. In three canary attempts, `off` and `low` returned schema-valid structured responses while `xhigh` repeatedly failed to return a usable final structured response under completion ceilings compatible with the frozen Study 1 budget. No human CAMS truth was loaded for scoring, no predictive-performance metric was calculated, and no substantive model outputs were inspected to make this change. This is therefore an engineering and budget-feasibility correction under the pre-specified pilot firewall, not a result-driven treatment change.
+
+Qwen3.8 27B exposes enabled reasoning efforts `xhigh`, `medium`, and `low`, while reasoning itself can be disabled. The final feasible treatment is therefore `off / low / medium`.
 
 ## Experimental unit and design
 
-The analysis uses the same frozen 1,000 CAMS respondents in every reasoning condition. Each respondent receives the same persona, the same six survey questions, the same response schema, the same model, and the same deterministic generation settings. The only intended treatment variation is reasoning configuration: thinking disabled (`off`), enabled at `low`, or enabled at `xhigh`.
+The analysis uses the same frozen 1,000 CAMS respondents in every reasoning condition. Each respondent receives the same persona, the same six survey questions, the same response schema, the same model, and the same deterministic generation settings. The only intended treatment variation is reasoning configuration: thinking disabled (`off`), enabled at `low`, or enabled at `medium`.
 
 Each respondent therefore contributes three paired model responses. Human CAMS outcomes remain withheld from every model request and are joined only for analysis after response collection.
 
@@ -35,7 +37,7 @@ For each condition:
 
 The reported scale is percentage points. Each of the six outcomes receives equal weight in the final mean.
 
-The primary reasoning contrast is `xhigh - off`. A negative difference means maximal supported reasoning improved population fidelity. `low - off` and `xhigh - low` are prespecified secondary contrasts.
+The primary reasoning contrast is `medium - off`. A negative difference means the higher feasible reasoning treatment improved population fidelity. `low - off` and `medium - low` are prespecified secondary contrasts.
 
 ### 2. Individual probabilistic Brier score
 
@@ -45,7 +47,7 @@ For respondent i, outcome j, and reasoning condition c:
 
 The condition-level score is the survey-weighted mean over respondents and equal-weight mean over the six outcomes. Lower is better.
 
-The primary reasoning contrast is again `xhigh - off`, with `low - off` and `xhigh - low` secondary.
+The primary reasoning contrast is again `medium - off`, with `low - off` and `medium - low` secondary.
 
 ## Secondary measures
 
@@ -94,6 +96,8 @@ Do not calculate human-vs-model accuracy, prevalence error, Brier score, subgrou
 
 Changes after the pilot are permitted only for demonstrated engineering incompatibilities or budget feasibility. Any such change must be documented before the full run, must trigger a new request/config freeze hash, and must not be motivated by substantive fidelity results.
 
+The move from `xhigh` to `medium` in version 3 is such a documented engineering change. The `xhigh` arm repeatedly exhausted or failed to expose usable final structured content under budget-compatible ceilings. The medium arm was selected because it is the next-highest native reasoning effort supported by the same model and remains compatible with the experiment's hard budget envelope.
+
 ## Generation configuration
 
 Study 1 uses:
@@ -102,10 +106,10 @@ Study 1 uses:
 - temperature: 0.0
 - top_p: 1.0
 - strict JSON-schema structured output
-- reasoning treatments: off, low, xhigh
+- reasoning treatments: off, low, medium
 - off treatment: `reasoning.enabled = false`
 - low treatment: `reasoning.effort = low`
-- xhigh treatment: `reasoning.effort = xhigh`
+- medium treatment: `reasoning.effort = medium`
 - completion ceilings: 250, 600, 1200 tokens respectively
 
 Reasoning text is excluded from returned pilot/full-run content, while reasoning-token usage remains measurable in provider accounting. Provider routing remains bounded by the frozen maximum price policy and data-collection policy.
@@ -116,7 +120,7 @@ Reasoning text is excluded from returned pilot/full-run content, while reasoning
 2. Verify exactly 3,000 unique successful requests and 1,000 complete respondent triplets.
 3. Join model outputs to frozen human truth by anonymous respondent ID.
 4. Compute co-primary metrics without subgroup slicing.
-5. Compute the primary `xhigh - off` paired contrasts.
+5. Compute the primary `medium - off` paired contrasts.
 6. Compute the prespecified secondary reasoning contrasts.
 7. Compute outcome-level secondary measures.
 8. Compute subgroup and demographic-overdetermination analyses.
