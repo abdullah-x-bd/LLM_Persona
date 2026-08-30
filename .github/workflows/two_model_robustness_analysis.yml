@@ -1,0 +1,98 @@
+name: Luna Claude zero-cost robustness analysis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/two_model_robustness_analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  CMS_RUN_ID: '33286591225'
+  PLFS_RUN_ID: '33289062160'
+
+jobs:
+  cms:
+    name: CMS matched Luna Claude
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy pandas scipy
+      - name: Restore completed CMS aggregates
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/luna /tmp/claude /tmp/out
+          for SPEC in 'cms-luna-aggregate:/tmp/luna' 'cms-claude-aggregate:/tmp/claude'; do
+            NAME=${SPEC%%:*}; DEST=${SPEC#*:}
+            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CMS_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1)
+            test -n "$AID"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > "/tmp/${NAME}.zip"
+            unzip -q "/tmp/${NAME}.zip" -d "$DEST"
+          done
+          test "$(wc -l < /tmp/luna/results.jsonl)" -eq 1500
+          test "$(wc -l < /tmp/claude/results.jsonl)" -eq 250
+      - name: Analyze exact matched intersection
+        run: |
+          python src/analyze_crossmodel.py --a /tmp/luna/results.jsonl --b /tmp/claude/results.jsonl --model-a luna --model-b claude --out /tmp/out
+          python - <<'PY'
+          import json
+          p='/tmp/out/summary.json'; m=json.load(open(p)); m['survey']='cms_telecom_2025'; m['luna_full_requests']=1500; m['claude_requests']=250; open(p,'w').write(json.dumps(m,indent=2)); print(json.dumps(m,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cms-luna-claude-robustness
+          path: /tmp/out/
+          retention-days: 30
+
+  plfs:
+    name: PLFS matched Luna Claude
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas scipy
+      - name: Restore first 250 completed PLFS requests for both models
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/luna_chunks /tmp/claude_chunks /tmp/work /tmp/out
+          for C in $(seq 0 9); do
+            for MODEL in luna claude; do
+              NAME="plfs-v4-${MODEL}-${C}"
+              AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PLFS_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1)
+              test -n "$AID"
+              DEST="/tmp/${MODEL}_chunks/${NAME}"
+              mkdir -p "$DEST"
+              gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > "/tmp/${NAME}.zip"
+              unzip -q "/tmp/${NAME}.zip" -d "$DEST"
+            done
+          done
+          test "$(find /tmp/luna_chunks -name '*.results.enc.b64' | wc -l)" -eq 10
+          test "$(find /tmp/claude_chunks -name '*.results.enc.b64' | wc -l)" -eq 10
+      - name: Decrypt and combine matched PLFS subset
+        run: |
+          python src/multisurvey_runtime.py combine --root /tmp/luna_chunks --survey plfs_2023_24 --model luna --expected 250 --out /tmp/work/luna.jsonl --manifest /tmp/work/luna_manifest.json
+          python src/multisurvey_runtime.py combine --root /tmp/claude_chunks --survey plfs_2023_24 --model claude --expected 250 --out /tmp/work/claude.jsonl --manifest /tmp/work/claude_manifest.json
+          python -c "import json; assert json.load(open('/tmp/work/luna_manifest.json'))['complete']; assert json.load(open('/tmp/work/claude_manifest.json'))['complete']"
+      - name: Analyze exact matched intersection
+        run: |
+          python src/analyze_crossmodel.py --a /tmp/work/luna.jsonl --b /tmp/work/claude.jsonl --model-a luna --model-b claude --out /tmp/out
+          python - <<'PY'
+          import json
+          p='/tmp/out/summary.json'; m=json.load(open(p)); m['survey']='plfs_2023_24'; m['luna_full_requests']=1500; m['matched_requests_used']=250; open(p,'w').write(json.dumps(m,indent=2)); print(json.dumps(m,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-luna-claude-robustness
+          path: /tmp/out/
+          retention-days: 30
