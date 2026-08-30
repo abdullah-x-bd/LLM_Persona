@@ -1,3 +1,4 @@
+# resilient PLFS Gemini final repair
 name: PLFS Gemini Google Vertex final repair
 
 on:
@@ -21,13 +22,14 @@ env:
   SURVEY: plfs_2023_24
   BUNDLE: /tmp/plfs_bundle.b64
   SCHEMA: config/plfs_2023_24_schema.json
+  CURRENT_RUN_ID: '33290002867'
   LATEST_RUN_ID: '33289801594'
   PREVIOUS_FINAL_RUN_ID: '33289443913'
   SOURCE_RUN_ID: '33289062160'
 
 jobs:
   gemini:
-    name: PLFS Gemini Vertex chunk ${{ matrix.chunk }}
+    name: PLFS Gemini resilient chunk ${{ matrix.chunk }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -40,7 +42,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install cryptography
+      - run: pip install cryptography json-repair
       - run: cat data/encrypted/plfs_2023_24_codes_full.part*.b64 | tr -d '\r\n\t ' > "$BUNDLE"
       - name: Reconstruct exact frozen shard
         run: |
@@ -50,20 +52,26 @@ jobs:
       - name: Restore newest durable Gemini checkpoint
         run: |
           set -euo pipefail
+          CURRENT_NAME="plfs-vertex-final-gemini-${{ matrix.chunk }}"
           LATEST_NAME="plfs-v2-final-gemini-${{ matrix.chunk }}"
           PREVIOUS_NAME="plfs-final-gemini-${{ matrix.chunk }}"
           SOURCE_NAME="plfs-v4-gemini-${{ matrix.chunk }}"
-          AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LATEST_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${LATEST_NAME}\") | .id" | head -n1 || true)
+          AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CURRENT_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${CURRENT_NAME}\") | .id" | head -n1 || true)
           if [ -n "$AID" ]; then
-            echo "Restoring latest ${LATEST_NAME} ${AID}"
+            echo "Restoring current ${CURRENT_NAME} ${AID}"
           else
-            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_FINAL_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${PREVIOUS_NAME}\") | .id" | head -n1 || true)
+            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LATEST_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${LATEST_NAME}\") | .id" | head -n1 || true)
             if [ -n "$AID" ]; then
-              echo "Restoring previous final ${PREVIOUS_NAME} ${AID}"
+              echo "Restoring latest ${LATEST_NAME} ${AID}"
             else
-              AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${SOURCE_NAME}\") | .id" | head -n1 || true)
-              test -n "$AID"
-              echo "Restoring source ${SOURCE_NAME} ${AID}"
+              AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_FINAL_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${PREVIOUS_NAME}\") | .id" | head -n1 || true)
+              if [ -n "$AID" ]; then
+                echo "Restoring previous final ${PREVIOUS_NAME} ${AID}"
+              else
+                AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${SOURCE_NAME}\") | .id" | head -n1 || true)
+                test -n "$AID"
+                echo "Restoring source ${SOURCE_NAME} ${AID}"
+              fi
             fi
           fi
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > /tmp/checkpoint.zip
@@ -81,13 +89,13 @@ jobs:
           n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
           print({'restored_successful_unique':n,'expected':25})
           PY
-      - name: Complete only unresolved Gemini rows on Google Vertex
+      - name: Complete only unresolved Gemini rows with strict validated JSON repair
         continue-on-error: true
         run: |
           set +e
-          for PASS in 1 2 3 4 5 6; do
-            echo "PLFS Gemini Google Vertex completion pass $PASS"
-            python src/run_openrouter_gemini_fast.py \
+          for PASS in 1 2 3 4; do
+            echo "PLFS Gemini resilient completion pass $PASS"
+            python src/run_openrouter_gemini_resilient.py \
               --requests /tmp/prod/requests.jsonl \
               --schema "$SCHEMA" \
               --out /tmp/prod/results.jsonl \
@@ -111,7 +119,8 @@ jobs:
           from pathlib import Path
           rows=[json.loads(x) for x in Path('/tmp/prod/results.jsonl').read_text().splitlines() if x.strip()]
           n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
-          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex'}
+          repaired=sum(1 for r in rows if r.get('json_syntax_repaired') is True)
+          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex','json_syntax_repaired_rows':repaired}
           Path('/tmp/final/manifest.json').write_text(json.dumps(m,indent=2))
           print(m)
           PY
@@ -126,7 +135,7 @@ jobs:
         run: python -c "import json; m=json.load(open('/tmp/final/manifest.json')); assert m['complete'],m"
 
   aggregate:
-    name: Verify PLFS Gemini 250 on Vertex
+    name: Verify PLFS Gemini 250
     if: always()
     needs: gemini
     runs-on: ubuntu-latest
