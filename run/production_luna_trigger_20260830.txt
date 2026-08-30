@@ -1,0 +1,4 @@
+Production run trigger for the frozen CAMS matched-person experiment.
+Model: openai/gpt-5.6-luna
+Requests: 2000
+Conditions: rich and thin
