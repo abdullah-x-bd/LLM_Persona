@@ -1,9 +1,9 @@
 {
   "freeze_version": 3,
-  "format_revision": "compact-v1-medium1200-akashmlfp8-retry3",
+  "format_revision": "compact-v1-low900-medium1500-akashmlfp8-retry3",
   "experiment": "CAMS reasoning population fidelity",
-  "source_preflight_run_id": 33307910924,
-  "source_commit": "08d53f58f9b8cef0a36313f65587e96847f08f1a",
+  "source_preflight_run_id": 33308186747,
+  "source_commit": "40d8250f2368715ef2b12f0fd9c8e3703070fda0",
   "respondents": 1000,
   "requests": 3000,
   "conditions": ["off", "low", "medium"],
@@ -17,9 +17,9 @@
   },
   "hashes": {
     "base_jsonl_sha256": "7a1e07742ae070c9dd335c90da64aa6072d137314cdf7a8a9d35b9057be893a1",
-    "config_sha256": "ca476bba7f556718d3751378d67a437dfd2f1e0e366889c8eb2f93d04b878bca",
-    "request_id_set_sha256": "58f1d66809e6c1132cee6be4d91d8a014f771c3c3113646d0424ebccc2616c63",
-    "requests_jsonl_sha256": "dc5653f25d8d8ff8c857ea717d1be20e0767bde31accf7c6299c3f456121d129",
+    "config_sha256": "7e6fa7313bc052d5766089eced6e30c803a5514c038a7a27f45b1f9f0a375332",
+    "request_id_set_sha256": "b1e70d8fe5d14cf13575288c480cf7256a1ae238a4fad30014322dcb1676cddb",
+    "requests_jsonl_sha256": "a256ad9e3282bd3d7f63fd1e7cced835e75573d5266ed57e4f713a43513bae29",
     "schema_sha256": "36d51333025d20b7d6118e9f5759b748c3883817446f3eca1acaaf59ff2b1230"
   },
   "invariants": {
@@ -35,8 +35,8 @@
   "generation_settings": {"temperature": 0.0, "top_p": 1.0, "structured_output": "json_schema_strict"},
   "reasoning_completion_caps": {
     "off": {"enabled": false, "max_completion_tokens": 250},
-    "low": {"effort": "low", "max_completion_tokens": 600},
-    "medium": {"effort": "medium", "max_completion_tokens": 1200}
+    "low": {"effort": "low", "max_completion_tokens": 900},
+    "medium": {"effort": "medium", "max_completion_tokens": 1500}
   },
   "prompt_distribution_per_unique_respondent": {
     "characters": {"min": 1952, "median": 2030.5, "mean": 2025.549, "p95": 2058.0, "max": 2082},
@@ -44,11 +44,11 @@
   },
   "budget_projection": {
     "repeated_input_tokens_conservative": 1900359,
-    "hard_capped_completion_tokens": 2050000,
+    "hard_capped_completion_tokens": 2650000,
     "configured_routed_price_usd_per_million": {"input": 0.425, "output": 2.55},
-    "configured_price_projection_usd": 6.035153,
+    "configured_price_projection_usd": 7.565153,
     "hard_provider_ceiling_usd_per_million": {"prompt": 0.45, "completion": 2.6},
-    "provider_ceiling_projection_usd": 6.185162,
+    "provider_ceiling_projection_usd": 7.745162,
     "study_1_cap_usd": 7.8,
     "absolute_project_spend_cap_usd": 9.5
   },
@@ -64,10 +64,10 @@
   },
   "pilot_retry_policy": {
     "max_attempts_per_request": 3,
-    "canary_hard_spend_cap_usd": 0.02,
-    "full_pilot_hard_spend_cap_usd": 0.38,
+    "canary_hard_spend_cap_usd": 0.025,
+    "full_pilot_hard_spend_cap_usd": 0.47,
     "account_every_received_response_before_parsing": true
   },
-  "engineering_change_reason": "Version 3 uses off/low/medium because xhigh repeatedly failed to expose usable structured final content under budget-compatible ceilings. A later low-arm null-content response identified serving-path intermittency rather than a treatment incompatibility. An attempted Alibaba pin was eliminated at inference by the existing data_collection=deny policy because Alibaba retains prompts. Study 1 is therefore pinned to the zero-retention AkashML FP8 endpoint and the engineering pilot permits up to three fully budgeted application attempts for transient empty or invalid completions. No human truth was loaded for scoring and no predictive performance was inspected when making these changes.",
-  "note": "This zero-retention pinned-provider version-3 hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
+  "engineering_change_reason": "Version 3 uses off/low/medium because xhigh repeatedly failed to expose usable structured final content under budget-compatible ceilings. Study 1 is pinned to the zero-retention AkashML FP8 endpoint and permits up to three fully accounted application attempts for transient empty or invalid completions. A paid AkashML canary then showed that the low arm consistently consumed roughly 646 to 653 reasoning tokens while the total completion cap was only 600, leaving no room for the structured final answer. The completion ceilings were therefore increased mechanically to 900 for low and 1500 for medium, while off remains 250. The resulting full-study provider-ceiling projection is USD 7.745162, below the frozen USD 7.80 Study 1 cap. No human truth was loaded for scoring and no predictive performance was inspected when making these engineering changes.",
+  "note": "This 250/900/1500 zero-retention pinned-provider version-3 hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
 }
