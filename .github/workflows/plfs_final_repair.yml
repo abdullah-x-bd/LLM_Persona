@@ -1,0 +1,327 @@
+name: PLFS final checkpoint-aware repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/plfs_final_repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: plfs-final-repair-v1
+  cancel-in-progress: true
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  SURVEY: plfs_2023_24
+  BUNDLE: /tmp/plfs_bundle.b64
+  SCHEMA: config/plfs_2023_24_schema.json
+  SOURCE_RUN_ID: '33289062160'
+
+jobs:
+  source-ready:
+    name: Wait for durable PLFS source checkpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require all 60 Luna, 10 Claude, and 10 Gemini source artifacts
+        run: |
+          set -euo pipefail
+          for PASS in $(seq 1 90); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" > /tmp/artifacts.json
+            python - <<'PY' && exit 0 || true
+          import json
+          a=json.load(open('/tmp/artifacts.json'))['artifacts']
+          names={x['name'] for x in a if not x.get('expired')}
+          missing=[]
+          for model,n in [('luna',60),('claude',10),('gemini',10)]:
+              for i in range(n):
+                  name=f'plfs-v4-{model}-{i}'
+                  if name not in names: missing.append(name)
+          print({'artifact_count':len(names),'missing':missing})
+          assert not missing
+          PY
+            sleep 10
+          done
+          echo 'Source checkpoint set did not become complete.'
+          exit 1
+
+  luna-repair:
+    name: Luna final repair chunk ${{ matrix.chunk }}
+    needs: source-ready
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - run: cat data/encrypted/plfs_2023_24_codes_full.part*.b64 | tr -d '\r\n\t ' > "$BUNDLE"
+      - name: Reconstruct exact frozen shard
+        run: |
+          mkdir -p /tmp/prod /tmp/source /tmp/final
+          START=$(( ${{ matrix.chunk }} * 25 ))
+          python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
+      - name: Download latest durable Luna checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: plfs-v4-luna-${{ matrix.chunk }}
+          path: /tmp/source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Restore all paid Luna successes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from src.multisurvey_runtime import decrypt_result
+          c=int('${{ matrix.chunk }}')
+          files=list(Path('/tmp/source').rglob('*.results.enc.b64'))
+          assert len(files)==1, files
+          raw=decrypt_result(files[0],'plfs_2023_24','luna',c)
+          Path('/tmp/prod/results.jsonl').write_bytes(raw)
+          rows=[json.loads(x) for x in raw.decode().splitlines() if x.strip()]
+          ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
+          print({'restored_successful_unique':len(ok),'expected':25})
+          PY
+      - name: Retry only unresolved Luna requests until complete
+        continue-on-error: true
+        run: |
+          set +e
+          for PASS in 1 2 3 4 5 6 7 8; do
+            echo "Luna completion pass $PASS"
+            python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema "$SCHEMA" --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model openai/gpt-5.6-luna --provider openai --concurrency 3 --max-retries 4
+            RC=$?
+            if [ "$RC" -eq 0 ]; then exit 0; fi
+            sleep $((PASS * 3))
+          done
+          exit 1
+      - name: Persist final encrypted Luna shard
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/multisurvey_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/final/${SURVEY}__luna__chunk-${C}.results.enc.b64" --survey "$SURVEY" --model luna --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[json.loads(x) for x in Path('/tmp/prod/results.jsonl').read_text().splitlines() if x.strip()]
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          m={'model':'luna','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25}
+          Path('/tmp/final/manifest.json').write_text(json.dumps(m,indent=2))
+          print(m)
+          PY
+      - name: Upload final Luna shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-luna-${{ matrix.chunk }}
+          path: /tmp/final/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Require 25 of 25 Luna responses
+        if: always()
+        run: python -c "import json; m=json.load(open('/tmp/final/manifest.json')); assert m['complete'],m"
+
+  gemini-repair:
+    name: Gemini final repair chunk ${{ matrix.chunk }}
+    needs: source-ready
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - run: cat data/encrypted/plfs_2023_24_codes_full.part*.b64 | tr -d '\r\n\t ' > "$BUNDLE"
+      - name: Reconstruct exact frozen Gemini shard
+        run: |
+          mkdir -p /tmp/prod /tmp/source /tmp/final
+          START=$(( ${{ matrix.chunk }} * 25 ))
+          python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
+      - name: Download latest durable Gemini checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: plfs-v4-gemini-${{ matrix.chunk }}
+          path: /tmp/source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Restore all paid Gemini successes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from src.multisurvey_runtime import decrypt_result
+          c=int('${{ matrix.chunk }}')
+          files=list(Path('/tmp/source').rglob('*.results.enc.b64'))
+          assert len(files)==1, files
+          raw=decrypt_result(files[0],'plfs_2023_24','gemini',c)
+          Path('/tmp/prod/results.jsonl').write_bytes(raw)
+          rows=[json.loads(x) for x in raw.decode().splitlines() if x.strip()]
+          ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
+          print({'restored_successful_unique':len(ok),'expected':25})
+          PY
+      - name: Retry only unresolved Gemini requests until complete
+        continue-on-error: true
+        run: |
+          set +e
+          for PASS in 1 2 3 4 5 6 7 8 9 10; do
+            echo "Gemini completion pass $PASS"
+            python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema "$SCHEMA" --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --concurrency 2 --max-retries 5
+            RC=$?
+            if [ "$RC" -eq 0 ]; then exit 0; fi
+            sleep $((PASS * 3))
+          done
+          exit 1
+      - name: Persist final encrypted Gemini shard
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/multisurvey_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/final/${SURVEY}__gemini__chunk-${C}.results.enc.b64" --survey "$SURVEY" --model gemini --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[json.loads(x) for x in Path('/tmp/prod/results.jsonl').read_text().splitlines() if x.strip()]
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25}
+          Path('/tmp/final/manifest.json').write_text(json.dumps(m,indent=2))
+          print(m)
+          PY
+      - name: Upload final Gemini shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-gemini-${{ matrix.chunk }}
+          path: /tmp/final/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Require 25 of 25 Gemini responses
+        if: always()
+        run: python -c "import json; m=json.load(open('/tmp/final/manifest.json')); assert m['complete'],m"
+
+  claude-promote:
+    name: Promote complete Claude chunk ${{ matrix.chunk }}
+    needs: source-ready
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - name: Download complete source Claude checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: plfs-v4-claude-${{ matrix.chunk }}
+          path: /tmp/final
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Require source manifest is complete
+        run: python -c "import json; m=json.load(open('/tmp/final/manifest.json')); assert m['successful']==25,m"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-claude-${{ matrix.chunk }}
+          path: /tmp/final/
+          retention-days: 30
+          if-no-files-found: error
+
+  aggregate-luna:
+    name: Verify final PLFS Luna 1500
+    if: always()
+    needs: luna-repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plfs-final-luna-*
+          path: /tmp/chunks
+      - name: Combine and verify 1500 unique Luna responses
+        run: |
+          mkdir -p /tmp/out
+          python src/multisurvey_runtime.py combine --root /tmp/chunks --survey "$SURVEY" --model luna --expected 1500 --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python -c "import json; m=json.load(open('/tmp/out/manifest.json')); assert m['complete'],m"
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-luna-aggregate
+          path: /tmp/out/
+          retention-days: 30
+
+  aggregate-gemini:
+    name: Verify final PLFS Gemini 250
+    if: always()
+    needs: gemini-repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plfs-final-gemini-*
+          path: /tmp/chunks
+      - name: Combine and verify 250 unique Gemini responses
+        run: |
+          mkdir -p /tmp/out
+          python src/multisurvey_runtime.py combine --root /tmp/chunks --survey "$SURVEY" --model gemini --expected 250 --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python -c "import json; m=json.load(open('/tmp/out/manifest.json')); assert m['complete'],m"
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-gemini-aggregate
+          path: /tmp/out/
+          retention-days: 30
+
+  aggregate-claude:
+    name: Verify final PLFS Claude 250
+    if: always()
+    needs: claude-promote
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plfs-final-claude-*
+          path: /tmp/chunks
+      - name: Combine and verify 250 unique Claude responses
+        run: |
+          mkdir -p /tmp/out
+          python src/multisurvey_runtime.py combine --root /tmp/chunks --survey "$SURVEY" --model claude --expected 250 --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python -c "import json; m=json.load(open('/tmp/out/manifest.json')); assert m['complete'],m"
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-claude-aggregate
+          path: /tmp/out/
+          retention-days: 30
