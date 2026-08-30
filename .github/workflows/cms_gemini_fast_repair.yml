@@ -1,4 +1,4 @@
-# Google-Vertex-pinned CMS Gemini checkpoint repair
+# resilient CMS Gemini checkpoint repair
 name: CMS Gemini fast checkpoint repair
 
 on:
@@ -22,12 +22,12 @@ env:
   SURVEY: cms_telecom_2025
   BUNDLE: data/encrypted/cms_telecom_2025_codes.enc.b64
   SCHEMA: config/cms_telecom_2025_schema.json
-  LATEST_RUN_ID: '33289767514'
+  LATEST_RUN_ID: '33289984899'
   PREVIOUS_RUN_ID: '33289091661'
 
 jobs:
   repair:
-    name: CMS Gemini Vertex chunk ${{ matrix.chunk }}
+    name: CMS Gemini resilient chunk ${{ matrix.chunk }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install cryptography
+      - run: pip install cryptography json-repair
       - name: Reconstruct frozen Gemini shard
         run: |
           mkdir -p /tmp/prod /tmp/checkpoint /tmp/previous
@@ -77,13 +77,13 @@ jobs:
           ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
           print({'restored_successful_unique':len(ok),'expected':25})
           PY
-      - name: Complete only unresolved Gemini rows on Google Vertex
+      - name: Complete only unresolved Gemini rows with strict validated JSON repair
         continue-on-error: true
         run: |
           set +e
-          for PASS in 1 2 3 4 5 6; do
-            echo "CMS Gemini Google Vertex completion pass $PASS"
-            python src/run_openrouter_gemini_fast.py \
+          for PASS in 1 2 3 4; do
+            echo "CMS Gemini resilient completion pass $PASS"
+            python src/run_openrouter_gemini_resilient.py \
               --requests /tmp/prod/requests.jsonl \
               --schema "$SCHEMA" \
               --out /tmp/prod/results.jsonl \
@@ -108,7 +108,8 @@ jobs:
           p=Path('/tmp/prod/results.jsonl')
           rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
           n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
-          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex'}
+          repaired=sum(1 for r in rows if r.get('json_syntax_repaired') is True)
+          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex','json_syntax_repaired_rows':repaired}
           Path('/tmp/checkpoint/manifest.json').write_text(json.dumps(m,indent=2))
           print(m)
           PY
