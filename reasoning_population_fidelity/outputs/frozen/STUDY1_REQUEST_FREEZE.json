@@ -1,9 +1,9 @@
 {
   "freeze_version": 3,
-  "format_revision": "compact-v1-medium1200",
+  "format_revision": "compact-v1-medium1200-alibaba-retry3",
   "experiment": "CAMS reasoning population fidelity",
-  "source_preflight_run_id": 33307231495,
-  "source_commit": "717f30c2687d9f7429489ff4722d8daa720ac1e2",
+  "source_preflight_run_id": 33307690382,
+  "source_commit": "b84a89ad56627971379e4d903a4f6997bdd497dd",
   "respondents": 1000,
   "requests": 3000,
   "conditions": ["off", "low", "medium"],
@@ -17,7 +17,7 @@
   },
   "hashes": {
     "base_jsonl_sha256": "7a1e07742ae070c9dd335c90da64aa6072d137314cdf7a8a9d35b9057be893a1",
-    "config_sha256": "911d938432642f4c0ff4b19689befe65c03bf30c639d700bb968f87b782b0e9c",
+    "config_sha256": "4a3b4a6e47f58a7da88a3be41cab696d607ad83277875f4ec9aac8636f52d2e9",
     "request_id_set_sha256": "58f1d66809e6c1132cee6be4d91d8a014f771c3c3113646d0424ebccc2616c63",
     "requests_jsonl_sha256": "dc5653f25d8d8ff8c857ea717d1be20e0767bde31accf7c6299c3f456121d129",
     "schema_sha256": "36d51333025d20b7d6118e9f5759b748c3883817446f3eca1acaaf59ff2b1230"
@@ -52,11 +52,20 @@
     "study_1_cap_usd": 7.8,
     "absolute_project_spend_cap_usd": 9.5
   },
-  "eligible_endpoint_preflight": {
-    "count": 2,
-    "endpoints": ["AkashML", "Alibaba"],
-    "all_reported_healthy": true
+  "provider_routing": {
+    "provider_order": ["alibaba"],
+    "allow_fallbacks": false,
+    "preflight_name": "Alibaba | qwen/qwen3.8-27b-20260814",
+    "preflight_input_usd_per_million": 0.425,
+    "preflight_output_usd_per_million": 2.55,
+    "preflight_status": 0
   },
-  "engineering_change_reason": "Three paid engineering canaries demonstrated that xhigh did not reliably return usable final structured content under completion ceilings compatible with the frozen Study 1 budget, while off and low were schema-valid. No human truth was loaded for scoring and no substantive predictive performance was inspected. The highest treatment was therefore changed to the model's next-highest native effort, medium, with a 1200-token completion ceiling. Prompt, personas, sample, outcomes, schema, model, generation settings, paired design, and analysis direction remain unchanged.",
-  "note": "This version-3 off/low/medium hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
+  "pilot_retry_policy": {
+    "max_attempts_per_request": 3,
+    "canary_hard_spend_cap_usd": 0.02,
+    "full_pilot_hard_spend_cap_usd": 0.38,
+    "account_every_received_response_before_parsing": true
+  },
+  "engineering_change_reason": "Version 3 uses off/low/medium because xhigh repeatedly failed to expose usable structured final content under budget-compatible ceilings. A later low-arm null-content response identified serving-path intermittency rather than a treatment incompatibility. Study 1 is therefore pinned to the currently healthy Alibaba endpoint and the engineering pilot permits up to three fully budgeted application attempts for transient empty or invalid completions. No human truth was loaded for scoring and no predictive performance was inspected when making these changes.",
+  "note": "This pinned-provider version-3 hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
 }
