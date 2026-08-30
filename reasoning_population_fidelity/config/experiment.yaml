@@ -1,0 +1,35 @@
+project:
+  name: reasoning_population_fidelity
+  budget_usd: 10.30
+  dataset: CAMS_2022_23
+  status: initialized
+
+study_1:
+  objective: reasoning_effect_on_synthetic_population_fidelity
+  planned_sample_n: 2500
+  reasoning_conditions:
+    - none
+    - low
+    - high
+
+study_2:
+  objective: cross_model_disagreement_as_reliability_signal
+  planned_sample_n: 2500
+  models: []
+
+run_policy:
+  paid_runs_enabled: false
+  require_dry_run_pass: true
+  require_cost_preflight: true
+  require_output_schema_validation: true
+  preserve_raw_outputs: true
+  cache_requests: true
+
+paths:
+  data: data
+  prompts: prompts
+  source: src
+  outputs: outputs
+  analysis: analysis
+  tests: tests
+  docs: docs
