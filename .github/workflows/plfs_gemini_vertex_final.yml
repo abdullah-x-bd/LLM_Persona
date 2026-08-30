@@ -1,0 +1,152 @@
+name: PLFS Gemini Google Vertex final repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/plfs_gemini_vertex_final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: plfs-final-repair-v1
+  cancel-in-progress: true
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  SURVEY: plfs_2023_24
+  BUNDLE: /tmp/plfs_bundle.b64
+  SCHEMA: config/plfs_2023_24_schema.json
+  LATEST_RUN_ID: '33289801594'
+  PREVIOUS_FINAL_RUN_ID: '33289443913'
+  SOURCE_RUN_ID: '33289062160'
+
+jobs:
+  gemini:
+    name: PLFS Gemini Vertex chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - run: cat data/encrypted/plfs_2023_24_codes_full.part*.b64 | tr -d '\r\n\t ' > "$BUNDLE"
+      - name: Reconstruct exact frozen shard
+        run: |
+          mkdir -p /tmp/prod /tmp/previous /tmp/final
+          START=$(( ${{ matrix.chunk }} * 25 ))
+          python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
+      - name: Restore newest durable Gemini checkpoint
+        run: |
+          set -euo pipefail
+          LATEST_NAME="plfs-v2-final-gemini-${{ matrix.chunk }}"
+          PREVIOUS_NAME="plfs-final-gemini-${{ matrix.chunk }}"
+          SOURCE_NAME="plfs-v4-gemini-${{ matrix.chunk }}"
+          AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LATEST_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${LATEST_NAME}\") | .id" | head -n1 || true)
+          if [ -n "$AID" ]; then
+            echo "Restoring latest ${LATEST_NAME} ${AID}"
+          else
+            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_FINAL_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${PREVIOUS_NAME}\") | .id" | head -n1 || true)
+            if [ -n "$AID" ]; then
+              echo "Restoring previous final ${PREVIOUS_NAME} ${AID}"
+            else
+              AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${SOURCE_NAME}\") | .id" | head -n1 || true)
+              test -n "$AID"
+              echo "Restoring source ${SOURCE_NAME} ${AID}"
+            fi
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > /tmp/checkpoint.zip
+          unzip -q /tmp/checkpoint.zip -d /tmp/previous
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from src.multisurvey_runtime import decrypt_result
+          c=int('${{ matrix.chunk }}')
+          files=list(Path('/tmp/previous').rglob('*.results.enc.b64'))
+          assert len(files)==1, files
+          raw=decrypt_result(files[0],'plfs_2023_24','gemini',c)
+          Path('/tmp/prod/results.jsonl').write_bytes(raw)
+          rows=[json.loads(x) for x in raw.decode().splitlines() if x.strip()]
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          print({'restored_successful_unique':n,'expected':25})
+          PY
+      - name: Complete only unresolved Gemini rows on Google Vertex
+        continue-on-error: true
+        run: |
+          set +e
+          for PASS in 1 2 3 4 5 6; do
+            echo "PLFS Gemini Google Vertex completion pass $PASS"
+            python src/run_openrouter_gemini_fast.py \
+              --requests /tmp/prod/requests.jsonl \
+              --schema "$SCHEMA" \
+              --out /tmp/prod/results.jsonl \
+              --checkpoint /tmp/prod/checkpoint.json \
+              --errors /tmp/prod/errors.jsonl \
+              --model google/gemini-3.7-flash \
+              --provider google-vertex \
+              --concurrency 6 --max-retries 0
+            RC=$?
+            if [ "$RC" -eq 0 ]; then exit 0; fi
+            sleep $((PASS * 2))
+          done
+          exit 1
+      - name: Persist final Gemini checkpoint
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/multisurvey_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/final/${SURVEY}__gemini__chunk-${C}.results.enc.b64" --survey "$SURVEY" --model gemini --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[json.loads(x) for x in Path('/tmp/prod/results.jsonl').read_text().splitlines() if x.strip()]
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex'}
+          Path('/tmp/final/manifest.json').write_text(json.dumps(m,indent=2))
+          print(m)
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plfs-vertex-final-gemini-${{ matrix.chunk }}
+          path: /tmp/final/
+          retention-days: 30
+          if-no-files-found: error
+      - if: always()
+        run: python -c "import json; m=json.load(open('/tmp/final/manifest.json')); assert m['complete'],m"
+
+  aggregate:
+    name: Verify PLFS Gemini 250 on Vertex
+    if: always()
+    needs: gemini
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plfs-vertex-final-gemini-*
+          path: /tmp/chunks
+      - run: |
+          mkdir -p /tmp/out
+          python src/multisurvey_runtime.py combine --root /tmp/chunks --survey "$SURVEY" --model gemini --expected 250 --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python -c "import json; m=json.load(open('/tmp/out/manifest.json')); assert m['complete'],m"
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-vertex-final-gemini-aggregate
+          path: /tmp/out/
+          retention-days: 30
