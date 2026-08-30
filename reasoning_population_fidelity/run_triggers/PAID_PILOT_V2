@@ -1,6 +1,6 @@
 authorized_by_user: true
-purpose: second paid canary then 20 respondent engineering pilot
+purpose: third paid canary then 20 respondent engineering pilot
 freeze_version: 2
-format_revision: compact-v1
+format_revision: compact-v1-xhigh1600
 conditions: off,low,xhigh
-attempt: 2
+attempt: 3
