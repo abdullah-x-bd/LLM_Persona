@@ -1,0 +1,4 @@
+authorized_by_user: true
+purpose: paid canary followed by engineering pilot
+freeze_version: 2
+conditions: off,low,xhigh
