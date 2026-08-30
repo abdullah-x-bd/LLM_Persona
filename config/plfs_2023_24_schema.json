@@ -1,0 +1,13 @@
+{
+  "type":"object",
+  "properties":{
+    "labour_force_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "employed_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "unemployed_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "self_employed_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "regular_salaried_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "casual_labour_cws":{"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false}
+  },
+  "required":["labour_force_cws","employed_cws","unemployed_cws","self_employed_cws","regular_salaried_cws","casual_labour_cws"],
+  "additionalProperties":false
+}
