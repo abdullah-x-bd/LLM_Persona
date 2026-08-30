@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parents[1]
 SRC=HERE/"src"
 sys.path.insert(0,str(SRC))
 from core import deterministic_mock, validate_persona, validate_response
-from pipeline import fixture_personas, expand
+from pipeline import fixture_personas, expand, load_config
 
 def test_persona_leakage_guard():
     validate_persona("A 40-year-old man living in rural Bihar, India, in a household of five people.")
@@ -23,11 +23,13 @@ def test_response_schema_guard():
 
 def test_identical_prompt_across_reasoning():
     with tempfile.TemporaryDirectory() as td:
-        td=Path(td); base=td/"base.jsonl"; exp=td/"expanded.jsonl"; rows=fixture_personas(); base.write_text("".join(json.dumps(r)+"\n" for r in rows)); expand(base,exp); expanded=[json.loads(x) for x in exp.read_text().splitlines()]
+        td=Path(td); base=td/"base.jsonl"; exp=td/"expanded.jsonl"; rows=fixture_personas(); base.write_text("".join(json.dumps(r)+"\n" for r in rows)); expand(base,exp); expanded=[json.loads(x) for x in exp.read_text().splitlines()]; cfg=load_config()
         for anon in {r["anon_id"] for r in expanded}:
             group=[r for r in expanded if r["anon_id"]==anon]
             assert len({r["prompt"] for r in group})==1
             assert {r["reasoning"] for r in group}=={"none","low","high"}
+            assert all(r["generation_settings"]==cfg["study_1"]["generation_settings"] for r in group)
+            assert len({json.dumps(r["generation_settings"],sort_keys=True) for r in group})==1
 
 def make_tiny_cams_zip(path):
     hh_fields=["ST","NSS","DIST","STRM","SSTRM","SR","SRO","FC","FSU","SSS","SSU","BL41I1","BL41I2","BL41I3","BL41I4","BL6I6"]
