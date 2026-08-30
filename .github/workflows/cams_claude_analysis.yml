@@ -1,0 +1,100 @@
+name: CAMS Claude zero-cost analysis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cams_claude_analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  CLAUDE_RUN_ID: '33286721946'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - name: Download the 20 completed Claude shards
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/chunks
+          for C in $(seq 0 19); do
+            NAME="cams-claude-${C}"
+            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CLAUDE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1)
+            test -n "$AID"
+            mkdir -p "/tmp/chunks/${NAME}"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > "/tmp/${NAME}.zip"
+            unzip -q "/tmp/${NAME}.zip" -d "/tmp/chunks/${NAME}"
+          done
+          test "$(find /tmp/chunks -name '*.results.enc.b64' | wc -l)" -eq 20
+      - name: Combine completed Claude results
+        run: |
+          mkdir -p /tmp/work /tmp/analysis
+          python src/production_runtime.py combine --root /tmp/chunks --out /tmp/work/results.jsonl --manifest /tmp/work/manifest.json
+          python - <<'PY'
+          import json
+          p='/tmp/work/manifest.json'
+          m=json.load(open(p))
+          m['expected']=500
+          m['complete']=m['successful_unique_requests']==500
+          m['scope']='first_250_frozen_respondents_both_conditions'
+          m['model']='anthropic/claude-sonnet-5'
+          assert m['complete'], m
+          open(p,'w').write(json.dumps(m,indent=2))
+          print(json.dumps(m,indent=2))
+          PY
+      - name: Decrypt frozen CAMS truth and select the exact 250 respondents
+        run: |
+          python src/production_runtime.py truth --bundle data/encrypted/cams_truth_v2.x25519.aesgcm.gz.b64 --out /tmp/work/truth.csv
+          python - <<'PY'
+          import json
+          import pandas as pd
+          ids=set()
+          for line in open('/tmp/work/results.jsonl'):
+              if line.strip():
+                  r=json.loads(line)
+                  if 'error' not in r: ids.add(r['anon_id'])
+          assert len(ids)==250, len(ids)
+          t=pd.read_csv('/tmp/work/truth.csv')
+          s=t[t['anon_id'].isin(ids)].copy()
+          assert len(s)==250, (len(s),len(ids))
+          s.to_csv('/tmp/work/truth_subset.csv',index=False)
+          print({'truth_subset_rows':len(s),'result_respondents':len(ids)})
+          PY
+      - name: Run frozen preregistered CAMS accuracy analysis
+        run: |
+          python src/analyze_results.py --sample /tmp/work/truth_subset.csv --results /tmp/work/results.jsonl --out /tmp/analysis
+          cp /tmp/work/manifest.json /tmp/analysis/run_manifest.json
+          python - <<'PY'
+          import json, pandas as pd
+          m=pd.read_csv('/tmp/analysis/outcome_metrics.csv')
+          summary=json.load(open('/tmp/analysis/summary.json'))
+          comparison={
+            'model':'anthropic/claude-sonnet-5',
+            'respondents':250,
+            'requests':500,
+            'conditions':sorted(m.condition.unique().tolist()),
+            'summary':summary,
+            'rich_minus_thin_probability_mae_pp':float(summary['rich']['probability_MAE_pp']-summary['thin']['probability_MAE_pp']) if {'rich','thin'} <= set(summary) else None,
+            'rich_minus_thin_hard_mae_pp':float(summary['rich']['hard_MAE_pp']-summary['thin']['hard_MAE_pp']) if {'rich','thin'} <= set(summary) else None
+          }
+          open('/tmp/analysis/final_summary.json','w').write(json.dumps(comparison,indent=2))
+          print(json.dumps(comparison,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cams-claude-final-analysis
+          path: /tmp/analysis/
+          retention-days: 30
