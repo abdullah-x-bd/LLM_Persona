@@ -1,0 +1,141 @@
+name: CAMS Gemini repair
+
+on:
+  workflow_run:
+    workflows: ["CAMS cross-model robustness"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cams-gemini-repair-v1
+  cancel-in-progress: false
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  SOURCE_RUN_ID: 33286721946
+
+jobs:
+  repair:
+    name: Repair Gemini CAMS chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - name: Download saved partial checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: cams-gemini-${{ matrix.chunk }}
+          path: /tmp/previous
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Restore successful responses
+        run: |
+          mkdir -p /tmp/prod /tmp/repaired
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,'src')
+          from production_runtime import decrypt_result_file
+          chunk=int('${{ matrix.chunk }}')
+          files=list(Path('/tmp/previous').rglob('*.results.enc.b64'))
+          assert len(files)==1, files
+          data=decrypt_result_file(files[0],chunk)
+          Path('/tmp/prod/results.jsonl').write_bytes(data)
+          successes=0
+          import json
+          for line in data.decode('utf-8').splitlines():
+              if line.strip() and 'error' not in json.loads(line): successes+=1
+          print(f'restored_successes={successes}')
+          PY
+      - name: Reconstruct exact frozen shard
+        run: |
+          python src/production_runtime.py requests \
+            --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 \
+            --out-requests /tmp/prod/requests.jsonl \
+            --out-schema /tmp/prod/schema.json \
+            --chunk ${{ matrix.chunk }} --chunk-size 25
+      - name: Run only missing Gemini requests
+        continue-on-error: true
+        run: |
+          python src/run_openrouter_v2.py \
+            --requests /tmp/prod/requests.jsonl \
+            --schema /tmp/prod/schema.json \
+            --out /tmp/prod/results.jsonl \
+            --checkpoint /tmp/prod/checkpoint.json \
+            --errors /tmp/prod/errors.jsonl \
+            --model google/gemini-3.7-flash \
+            --concurrency 2 --max-retries 5
+      - name: Verify and encrypt repaired shard
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/prod/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
+          Path('/tmp/repaired/manifest.json').write_text(json.dumps({'chunk':int('${{ matrix.chunk }}'),'successful_unique':len(ok),'expected':25},indent=2))
+          assert len(ok)==25, f'Chunk incomplete after repair: {len(ok)}/25'
+          PY
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/production_runtime.py encrypt-results \
+            --in /tmp/prod/results.jsonl \
+            --out "/tmp/repaired/chunk-${C}.results.enc.b64" \
+            --chunk ${{ matrix.chunk }}
+      - name: Upload repaired checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cams-gemini-repaired-${{ matrix.chunk }}
+          path: /tmp/repaired/
+          retention-days: 30
+          if-no-files-found: error
+
+  aggregate:
+    name: Aggregate repaired CAMS Gemini subset
+    if: always()
+    needs: repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cams-gemini-repaired-*
+          path: /tmp/chunks
+      - name: Combine repaired 500-request subset
+        run: |
+          mkdir -p /tmp/out
+          python src/production_runtime.py combine --root /tmp/chunks --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python - <<'PY'
+          import json
+          p='/tmp/out/manifest.json'; m=json.load(open(p))
+          m['expected']=500
+          m['complete']=m['successful_unique_requests']==500
+          m['scope']='first_250_frozen_respondents_both_conditions'
+          open(p,'w').write(json.dumps(m,indent=2))
+          assert m['complete'], m
+          PY
+          python src/production_runtime.py encrypt-combined --in /tmp/out/results.jsonl --out /tmp/out/cams_gemini_repaired_combined.enc.b64
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cams-gemini-repaired-aggregate
+          path: /tmp/out/
+          retention-days: 30
