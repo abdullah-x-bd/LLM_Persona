@@ -1,4 +1,4 @@
-# trigger CAMS Gemini single-failure diagnostic 2026-08-30
+# diagnose post-repair CAMS Gemini single failure
 name: CAMS Gemini single-failure diagnostic
 
 on:
@@ -15,7 +15,7 @@ permissions:
 env:
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   GH_TOKEN: ${{ github.token }}
-  SOURCE_RUN_ID: '33289682098'
+  SOURCE_RUN_ID: '33290095794'
 
 jobs:
   diagnose:
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install cryptography numpy pandas
+      - run: pip install cryptography numpy pandas json-repair
       - name: Restore current 24-of-25 chunk zero checkpoint
         run: |
           mkdir -p /tmp/previous /tmp/prod
@@ -46,11 +46,11 @@ jobs:
       - name: Reconstruct exact frozen chunk zero
         run: |
           python src/production_runtime.py requests --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 --out-requests /tmp/prod/requests.jsonl --out-schema /tmp/prod/schema.json --chunk 0 --chunk-size 25
-      - name: Make one diagnostic attempt for the sole unresolved request
+      - name: Make one resilient diagnostic attempt for sole unresolved request
         continue-on-error: true
         run: |
-          python src/run_openrouter_gemini_fast.py --requests /tmp/prod/requests.jsonl --schema /tmp/prod/schema.json --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --concurrency 1 --max-retries 0
-      - name: Print only diagnostic error class/message
+          python src/run_openrouter_gemini_resilient.py --requests /tmp/prod/requests.jsonl --schema /tmp/prod/schema.json --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --provider google-vertex --concurrency 1 --max-retries 0
+      - name: Print only post-repair diagnostic error class/message
         if: always()
         run: |
           python - <<'PY'
@@ -59,6 +59,6 @@ jobs:
           p=Path('/tmp/prod/errors.jsonl')
           assert p.exists() and p.stat().st_size, 'No diagnostic error record was produced'
           x=json.loads(p.read_text().splitlines()[-1])
-          print('GEMINI_DIAGNOSTIC_ERROR=' + str(x.get('error')))
+          print('GEMINI_POST_REPAIR_ERROR=' + str(x.get('error')))
           print('ATTEMPTS=' + str(x.get('attempts')))
           PY
