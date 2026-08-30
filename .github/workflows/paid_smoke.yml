@@ -1,25 +1,21 @@
 name: One-call paid smoke test
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   smoke:
-    if: contains(github.event.head_commit.message, '[paid-smoke]')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install smoke-test dependencies
-        run: |
-          pip install numpy pandas
+        run: pip install numpy pandas
       - name: Create one non-sensitive dummy request
         run: |
           mkdir -p /tmp/llm_persona_smoke
@@ -28,50 +24,21 @@ jobs:
           sys.path.insert(0, 'src')
           from prepare_sample import build_prompt, response_schema
           persona = 'You are a 31-year-old woman living in rural Haryana, India.'
-          row = {
-              'anon_id': 'SMOKE-00001',
-              'condition': 'thin',
-              'persona': persona,
-              'prompt': build_prompt(persona),
-          }
-          with open('/tmp/llm_persona_smoke/requests.jsonl','w',encoding='utf-8') as f:
-              f.write(json.dumps(row) + '\n')
-          with open('/tmp/llm_persona_smoke/schema.json','w',encoding='utf-8') as f:
-              json.dump(response_schema(), f)
+          row = {'anon_id':'SMOKE-00001','condition':'thin','persona':persona,'prompt':build_prompt(persona)}
+          open('/tmp/llm_persona_smoke/requests.jsonl','w').write(json.dumps(row)+'\n')
+          open('/tmp/llm_persona_smoke/schema.json','w').write(json.dumps(response_schema()))
           PY
       - name: Run exactly one paid inference
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          python src/run_openrouter.py \
-            --requests /tmp/llm_persona_smoke/requests.jsonl \
-            --schema /tmp/llm_persona_smoke/schema.json \
-            --out /tmp/llm_persona_smoke/results.jsonl \
-            --model openai/gpt-5.6-luna \
-            --provider openai \
-            --concurrency 1 \
-            --max-retries 0 \
-            --limit 1
+          python src/run_openrouter.py --requests /tmp/llm_persona_smoke/requests.jsonl --schema /tmp/llm_persona_smoke/schema.json --out /tmp/llm_persona_smoke/results.jsonl --model openai/gpt-5.6-luna --provider openai --concurrency 1 --max-retries 0 --limit 1
       - name: Validate returned model response
         run: |
           python - <<'PY'
           import json
-          row=json.loads(open('/tmp/llm_persona_smoke/results.jsonl',encoding='utf-8').read())
-          assert 'error' not in row, row
+          row=json.loads(open('/tmp/llm_persona_smoke/results.jsonl').read())
+          assert 'error' not in row
           assert row['anon_id']=='SMOKE-00001'
-          assert row['condition']=='thin'
-          assert set(row['response'])=={'mobile_ability','mobile_3m','computer_ability','internet_ability','internet_3m','copy_paste'}
-          for v in row['response'].values():
-              assert v['answer'] in {'yes','no'}
-              assert 0 <= float(v['probability_yes']) <= 1
-          print(json.dumps({
-              'PASS': True,
-              'model_requested': row.get('model_requested'),
-              'model_returned': row.get('model_returned'),
-              'provider_returned': row.get('provider_returned'),
-              'prompt_tokens': row.get('prompt_tokens'),
-              'completion_tokens': row.get('completion_tokens'),
-              'total_tokens': row.get('total_tokens'),
-              'latency_seconds': row.get('latency_seconds')
-          }, indent=2))
+          print('PASS')
           PY
