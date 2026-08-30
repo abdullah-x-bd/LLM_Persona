@@ -3,7 +3,7 @@
   "canary_respondents": 1,
   "full_pilot_respondents": 20,
   "canary_hard_spend_cap_usd": 0.01,
-  "full_pilot_hard_spend_cap_usd": 0.15,
+  "full_pilot_hard_spend_cap_usd": 0.16,
   "selection_seed_label": "RPF_ENGINEERING_PILOT_V1",
   "require_exact_frozen_request_hash": true,
   "require_live_metadata_preflight": true,
