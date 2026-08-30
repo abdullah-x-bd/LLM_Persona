@@ -1,10 +1,12 @@
-# Frozen Study 1 analysis plan
+# Frozen Study 1 analysis plan, version 2
 
 Frozen before any paid inference for the reasoning-population-fidelity experiment.
 
+Version 2 replaces the provisional `none / low / high` labels after the zero-cost OpenRouter model-metadata gate established that Qwen3.8 27B exposes enabled reasoning efforts `xhigh`, `medium`, and `low`, while thinking itself can be disabled. No paid inference had occurred when this correction was made. The final treatment is therefore `off / low / xhigh`.
+
 ## Experimental unit and design
 
-The analysis uses the same frozen 1,000 CAMS respondents in every reasoning condition. Each respondent receives the same persona, the same six survey questions, the same response schema, the same model, and the same deterministic generation settings. The only intended treatment variation is OpenRouter reasoning effort: `none`, `low`, or `high`.
+The analysis uses the same frozen 1,000 CAMS respondents in every reasoning condition. Each respondent receives the same persona, the same six survey questions, the same response schema, the same model, and the same deterministic generation settings. The only intended treatment variation is reasoning configuration: thinking disabled (`off`), enabled at `low`, or enabled at `xhigh`.
 
 Each respondent therefore contributes three paired model responses. Human CAMS outcomes remain withheld from every model request and are joined only for analysis after response collection.
 
@@ -33,7 +35,7 @@ For each condition:
 
 The reported scale is percentage points. Each of the six outcomes receives equal weight in the final mean.
 
-The primary reasoning contrast is `high - none`. A negative difference means high reasoning improved population fidelity. `low - none` and `high - low` are prespecified secondary contrasts.
+The primary reasoning contrast is `xhigh - off`. A negative difference means maximal supported reasoning improved population fidelity. `low - off` and `xhigh - low` are prespecified secondary contrasts.
 
 ### 2. Individual probabilistic Brier score
 
@@ -43,7 +45,7 @@ For respondent i, outcome j, and reasoning condition c:
 
 The condition-level score is the survey-weighted mean over respondents and equal-weight mean over the six outcomes. Lower is better.
 
-The primary reasoning contrast is again `high - none`, with `low - none` and `high - low` secondary.
+The primary reasoning contrast is again `xhigh - off`, with `low - off` and `xhigh - low` secondary.
 
 ## Secondary measures
 
@@ -100,10 +102,13 @@ Study 1 uses:
 - temperature: 0.0
 - top_p: 1.0
 - strict JSON-schema structured output
-- reasoning efforts: none, low, high
-- completion ceilings: 200, 300, 400 tokens respectively
+- reasoning treatments: off, low, xhigh
+- off treatment: `reasoning.enabled = false`
+- low treatment: `reasoning.effort = low`
+- xhigh treatment: `reasoning.effort = xhigh`
+- completion ceilings: 250, 600, 1200 tokens respectively
 
-Provider routing remains bounded by the frozen maximum price policy and data-collection policy.
+Reasoning text is excluded from returned pilot/full-run content, while reasoning-token usage remains measurable in provider accounting. Provider routing remains bounded by the frozen maximum price policy and data-collection policy.
 
 ## Analysis order after the full run
 
@@ -111,7 +116,7 @@ Provider routing remains bounded by the frozen maximum price policy and data-col
 2. Verify exactly 3,000 unique successful requests and 1,000 complete respondent triplets.
 3. Join model outputs to frozen human truth by anonymous respondent ID.
 4. Compute co-primary metrics without subgroup slicing.
-5. Compute the primary `high - none` paired contrasts.
+5. Compute the primary `xhigh - off` paired contrasts.
 6. Compute the prespecified secondary reasoning contrasts.
 7. Compute outcome-level secondary measures.
 8. Compute subgroup and demographic-overdetermination analyses.
