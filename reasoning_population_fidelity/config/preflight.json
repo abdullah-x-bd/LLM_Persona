@@ -42,6 +42,9 @@
     "preserve_raw_outputs": true,
     "allow_provider_fallbacks": true,
     "provider_data_collection": "deny",
+    "provider_sort": "price",
+    "provider_max_price_usd_per_million": {"prompt": 0.50, "completion": 3.00},
+    "require_parameters": true,
     "max_retries": 3,
     "concurrency": 8
   },
