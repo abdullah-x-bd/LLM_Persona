@@ -1,0 +1,60 @@
+name: Reasoning population Study 1 production
+
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/STUDY1_PRODUCTION_V1'
+
+permissions:
+  contents: read
+
+jobs:
+  study1-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install numpy pandas cryptography
+      - name: Compile production code
+        run: python -m compileall -q reasoning_population_fidelity/src reasoning_population_fidelity/analysis
+      - name: Recheck live model metadata without inference
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python reasoning_population_fidelity/src/online_preflight.py
+      - name: Run frozen 1000 respondent Study 1
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          RPF_ENABLE_STUDY1: YES_I_ACCEPT_STUDY1_COST
+        run: |
+          rm -rf /tmp/rpf_study1
+          python reasoning_population_fidelity/src/production_study1.py --spend-cap 7.80 --workdir /tmp/rpf_study1
+      - name: Upload encrypted Study 1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpf-study1-production-v3
+          path: /tmp/rpf_study1/study1_output/
+          retention-days: 30
+      - name: Final Study 1 integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          p='/tmp/rpf_study1/study1_output/study1_summary.json'
+          x=json.load(open(p))
+          assert x['requests_planned'] == 3000, x
+          assert x['requests_schema_valid'] == 3000, x
+          assert x['all_schema_valid'] is True, x
+          assert x['remaining_failures'] == 0, x
+          assert x['condition_valid_counts'] == {'off':1000,'low':1000,'medium':1000}, x
+          assert x['accounted_upper_bound_usd'] <= 7.80, x
+          assert x['known_realized_cost_usd'] is None or x['known_realized_cost_usd'] <= 7.80, x
+          assert x['provider_order'] == ['akashml/fp8'], x
+          assert x['allow_provider_fallbacks'] is False, x
+          assert x['provider_data_collection'] == 'deny', x
+          print('STUDY1_PRODUCTION_GATE_PASS')
+          print(json.dumps(x, indent=2, sort_keys=True))
+          PY
