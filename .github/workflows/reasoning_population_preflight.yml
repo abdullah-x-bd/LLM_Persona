@@ -40,6 +40,21 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python reasoning_population_fidelity/src/encrypted_cams_preflight.py
+      - name: Generate and freeze 3000 real CAMS requests without inference
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          rm -rf /tmp/rpf_real_freeze
+          python reasoning_population_fidelity/src/freeze_real_cams.py --workdir /tmp/rpf_real_freeze
+          test -s /tmp/rpf_real_freeze/freeze_manifest.json
+          test -s /tmp/rpf_real_freeze/requests.jsonl
+          test "$(wc -l < /tmp/rpf_real_freeze/requests.jsonl)" -eq 3000
+      - name: Upload aggregate freeze manifest only
+        uses: actions/upload-artifact@v4
+        with:
+          name: reasoning-population-freeze-manifest
+          path: /tmp/rpf_real_freeze/freeze_manifest.json
+          retention-days: 30
       - name: Zero-cost OpenRouter model and price check
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
