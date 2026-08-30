@@ -29,7 +29,7 @@ def _parse_with_audit(content: str, outcome_keys: list[str]) -> tuple[dict[str, 
     try:
         obj = json.loads(content)
     except json.JSONDecodeError:
-        obj = repair_loads(content, return_objects=True)
+        obj = repair_loads(content)
         repaired = True
     parsed = base.validate_payload(obj, outcome_keys)
     return parsed, repaired, raw_hash
