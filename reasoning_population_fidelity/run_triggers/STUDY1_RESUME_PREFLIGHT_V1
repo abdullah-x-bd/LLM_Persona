@@ -1,0 +1,1 @@
+Purpose: verify preserved production artifact 9732220571, reconstruct the exact frozen 3,000-request set, confirm the 963 saved successes, calculate remaining cost from observed production behavior, and check current OpenRouter credit. No inference endpoint may be called.
