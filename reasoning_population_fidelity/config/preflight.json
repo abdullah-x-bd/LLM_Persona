@@ -17,8 +17,8 @@
     "minimum_sample_n": 1000,
     "reasoning_conditions": {
       "off": {"enabled": false, "max_completion_tokens": 250},
-      "low": {"effort": "low", "max_completion_tokens": 600},
-      "medium": {"effort": "medium", "max_completion_tokens": 1200}
+      "low": {"effort": "low", "max_completion_tokens": 900},
+      "medium": {"effort": "medium", "max_completion_tokens": 1500}
     },
     "generation_settings": {
       "temperature": 0.0,
