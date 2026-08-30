@@ -77,7 +77,7 @@ def build_base(out: Path) -> dict:
 def freeze(base: Path, requests: Path, manifest: Path) -> dict:
     cfg = load_config(CONFIG)
     expected_conditions = set(cfg["study_1"]["reasoning_conditions"])
-    if expected_conditions != {"off", "low", "xhigh"}:
+    if expected_conditions != {"off", "low", "medium"}:
         raise AssertionError(f"Unexpected treatment set: {sorted(expected_conditions)}")
     build_info = build_base(base)
     expansion = expand(base, requests, CONFIG, SCHEMA)
@@ -113,11 +113,11 @@ def freeze(base: Path, requests: Path, manifest: Path) -> dict:
     req_bytes = requests.read_bytes()
     request_ids = [r["request_id"] for r in rows]
     result = {
-        "freeze_version": 2,
+        "freeze_version": 3,
         "experiment": "CAMS reasoning population fidelity",
         "respondents": 1000,
         "requests": 3000,
-        "conditions": ["off", "low", "xhigh"],
+        "conditions": ["off", "low", "medium"],
         "model": pm["id"],
         "outcomes": cfg["outcomes"],
         "paid_inference_performed": False,
