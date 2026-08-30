@@ -1,11 +1,11 @@
 {
-  "freeze_version": 1,
+  "freeze_version": 2,
   "experiment": "CAMS reasoning population fidelity",
-  "source_preflight_run_id": 33304890335,
-  "source_commit": "c6f3e142893dfd74962fd37333f54d4da395844a",
+  "source_preflight_run_id": 33305508691,
+  "source_commit": "3d2b5b42ae460b93e9e1df8bccc43db1cd2d8821",
   "respondents": 1000,
   "requests": 3000,
-  "conditions": ["none", "low", "high"],
+  "conditions": ["off", "low", "xhigh"],
   "model": "qwen/qwen3.8-27b",
   "outcomes": [
     "mobile_ability",
@@ -23,9 +23,9 @@
   },
   "hashes": {
     "base_jsonl_sha256": "220f099d766326887460eaf4049777e70ea3d8d472b1fe284c0abb54a9a5f5ed",
-    "config_sha256": "7bf1f331d648f34975d56a2df0b55f889c7b7a16f2c672d10e4da068a72bdd72",
-    "request_id_set_sha256": "bea7a7e7d3c28ed9a87c95ad018859f481d7a6a4d4446de2ab6048010646f59b",
-    "requests_jsonl_sha256": "f27365c9c5b8275c374b35a3f80cee22102e9e200a921a1896ad37b9ef5391d9",
+    "config_sha256": "304fbbb89226d874f02ea7bf8dae78f632ae651c3455c4f4b65ce60b1b8dea55",
+    "request_id_set_sha256": "e4d11781469e66e1a7833114a0da3d0effa5c0380d6fe567cd88ed72fe91ee1c",
+    "requests_jsonl_sha256": "071c408c2f5f6b6c75c1b8f90980c1464bb38f439bf7fd2ea22490bc74ae410f",
     "schema_sha256": "e2b106a5afb2c771512cc5b203196e117ab2a90724e5b0ca9a6a7caf5a656ac4"
   },
   "invariants": {
@@ -44,9 +44,9 @@
     "structured_output": "json_schema_strict"
   },
   "reasoning_completion_caps": {
-    "none": {"effort": "none", "max_completion_tokens": 200},
-    "low": {"effort": "low", "max_completion_tokens": 300},
-    "high": {"effort": "high", "max_completion_tokens": 400}
+    "off": {"enabled": false, "max_completion_tokens": 250},
+    "low": {"effort": "low", "max_completion_tokens": 600},
+    "xhigh": {"effort": "xhigh", "max_completion_tokens": 1200}
   },
   "prompt_distribution_per_unique_respondent": {
     "characters": {"min": 1867, "median": 1945.5, "mean": 1940.549, "p95": 1973.0, "max": 1997},
@@ -54,13 +54,13 @@
   },
   "budget_projection": {
     "repeated_input_tokens_conservative": 1820673,
-    "hard_capped_completion_tokens": 900000,
+    "hard_capped_completion_tokens": 2050000,
     "configured_routed_price_usd_per_million": {"input": 0.425, "output": 2.55},
-    "configured_price_projection_usd": 3.068786,
+    "configured_price_projection_usd": 6.001286,
     "hard_provider_ceiling_usd_per_million": {"prompt": 0.5, "completion": 3.0},
-    "provider_ceiling_projection_usd": 3.610337,
+    "provider_ceiling_projection_usd": 7.060336,
     "study_1_cap_usd": 7.8,
     "absolute_project_spend_cap_usd": 9.5
   },
-  "note": "No respondent-level plaintext is stored here. The request set is deterministically reconstructed from encrypted frozen CAMS bundles and must reproduce the hashes above before any paid pilot or full run. Provider-billed token counts will be measured in the engineering-only pilot."
+  "note": "Version 2 supersedes the invalid none/low/high draft. Qwen3.8-27b live metadata was verified to support reasoning disabled plus low and xhigh effort. No respondent-level plaintext is stored here. Every paid run must reconstruct the 3000-request set from the encrypted frozen CAMS bundles and reproduce the hashes above before inference."
 }
