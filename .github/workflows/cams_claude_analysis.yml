@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install cryptography numpy pandas
-      - name: Download the 20 completed Claude shards
+      - name: Download and normalize the 20 completed Claude shards
         run: |
           set -euo pipefail
           mkdir -p /tmp/chunks
@@ -34,11 +34,16 @@ jobs:
             NAME="cams-claude-${C}"
             AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CLAUDE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1)
             test -n "$AID"
-            mkdir -p "/tmp/chunks/${NAME}"
+            TMP="/tmp/${NAME}"
+            mkdir -p "$TMP"
             gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > "/tmp/${NAME}.zip"
-            unzip -q "/tmp/${NAME}.zip" -d "/tmp/chunks/${NAME}"
+            unzip -q "/tmp/${NAME}.zip" -d "$TMP"
+            SRC=$(find "$TMP" -name '*.results.enc.b64' | head -n1)
+            test -n "$SRC"
+            printf -v PAD '%03d' "$C"
+            cp "$SRC" "/tmp/chunks/chunk-${PAD}.results.enc.b64"
           done
-          test "$(find /tmp/chunks -name '*.results.enc.b64' | wc -l)" -eq 20
+          test "$(find /tmp/chunks -name 'chunk-*.results.enc.b64' | wc -l)" -eq 20
       - name: Combine completed Claude results
         run: |
           mkdir -p /tmp/work /tmp/analysis
