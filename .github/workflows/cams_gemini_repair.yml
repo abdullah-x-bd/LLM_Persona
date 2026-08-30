@@ -1,6 +1,10 @@
 name: CAMS Gemini repair
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cams_gemini_repair.yml'
   workflow_run:
     workflows: ["CAMS cross-model robustness"]
     types: [completed]
@@ -77,8 +81,8 @@ jobs:
             --checkpoint /tmp/prod/checkpoint.json \
             --errors /tmp/prod/errors.jsonl \
             --model google/gemini-3.7-flash \
-            --concurrency 2 --max-retries 5
-      - name: Verify and encrypt repaired shard
+            --concurrency 2 --max-retries 8
+      - name: Persist repaired shard before completeness check
         if: always()
         run: |
           python - <<'PY'
@@ -87,8 +91,8 @@ jobs:
           p=Path('/tmp/prod/results.jsonl')
           rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
           ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
-          Path('/tmp/repaired/manifest.json').write_text(json.dumps({'chunk':int('${{ matrix.chunk }}'),'successful_unique':len(ok),'expected':25},indent=2))
-          assert len(ok)==25, f'Chunk incomplete after repair: {len(ok)}/25'
+          Path('/tmp/repaired/manifest.json').write_text(json.dumps({'chunk':int('${{ matrix.chunk }}'),'successful_unique':len(ok),'expected':25,'complete':len(ok)==25},indent=2))
+          print(f'persisting repaired checkpoint with {len(ok)}/25 successful unique requests')
           PY
           C=$(printf '%03d' ${{ matrix.chunk }})
           python src/production_runtime.py encrypt-results \
@@ -103,6 +107,14 @@ jobs:
           path: /tmp/repaired/
           retention-days: 30
           if-no-files-found: error
+      - name: Require complete repaired shard
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open('/tmp/repaired/manifest.json'))
+          assert s['successful_unique']==25, f"Chunk incomplete after repair: {s['successful_unique']}/25"
+          PY
 
   aggregate:
     name: Aggregate repaired CAMS Gemini subset
