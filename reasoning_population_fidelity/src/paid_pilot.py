@@ -29,7 +29,7 @@ PILOT_CONFIG = HERE / "config" / "pilot.json"
 SCHEMA = HERE / "prompts" / "response_schema.json"
 FREEZE_RECORD = HERE / "outputs" / "frozen" / "STUDY1_REQUEST_FREEZE.json"
 BASE = "https://openrouter.ai/api/v1"
-CONDITION_ORDER = {"off": 0, "low": 1, "xhigh": 2}
+CONDITION_ORDER = {"off": 0, "low": 1, "medium": 2}
 
 
 def load_json(path: Path) -> dict:
@@ -39,7 +39,7 @@ def load_json(path: Path) -> dict:
 def request_json(url: str, key: str, body: dict | None = None, timeout: int = 90) -> dict:
     headers = {
         "Authorization": f"Bearer {key}",
-        "User-Agent": "LLM-Persona-RPF-Engineering-Pilot/1.1",
+        "User-Agent": "LLM-Persona-RPF-Engineering-Pilot/1.2",
         "Content-Type": "application/json",
     }
     data = None if body is None else json.dumps(body, separators=(",", ":")).encode("utf-8")
@@ -81,7 +81,7 @@ def select_pilot(rows: list[dict], n_respondents: int, label: str) -> list[dict]
         raise RuntimeError("Pilot selection does not contain complete respondent triplets")
     for anon in selected_ids:
         group = [r for r in selected if r["anon_id"] == anon]
-        if {r["reasoning"] for r in group} != {"off", "low", "xhigh"}:
+        if {r["reasoning"] for r in group} != {"off", "low", "medium"}:
             raise RuntimeError(f"Incomplete pilot triplet for {anon}")
         if len({r["prompt"] for r in group}) != 1:
             raise RuntimeError(f"Pilot prompt mismatch for {anon}")
@@ -100,7 +100,7 @@ def reasoning_payload(row: dict, exclude: bool) -> dict:
     if settings.get("enabled") is False:
         return {"enabled": False, "exclude": bool(exclude)}
     effort = settings.get("effort")
-    if effort not in {"low", "xhigh"}:
+    if effort not in {"low", "medium"}:
         raise RuntimeError(f"Unexpected enabled reasoning effort: {effort}")
     return {"effort": effort, "exclude": bool(exclude)}
 
