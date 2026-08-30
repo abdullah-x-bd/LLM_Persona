@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import argparse, hashlib, json, os, random, threading, time, urllib.request
+import argparse, hashlib, json, os, random, threading, time, urllib.request, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 MODEL_CONFIG={
     "openai/gpt-5.6-luna":{"provider":"openai","input_per_m":.20,"output_per_m":1.20},
-    "google/gemini-3.7-flash":{"provider":"google-vertex","input_per_m":.375,"output_per_m":1.875},
+    "google/gemini-3.7-flash":{"provider":"","input_per_m":.375,"output_per_m":1.875},
     "anthropic/claude-sonnet-5":{"provider":"anthropic","input_per_m":2.0,"output_per_m":10.0},
 }
 BASE_URL="https://openrouter.ai/api/v1/chat/completions"
@@ -61,8 +61,12 @@ def post_json(payload,key,timeout=90):
     req=urllib.request.Request(BASE_URL,data=json.dumps(payload).encode(),method="POST",headers={
         "Authorization":f"Bearer {key}","Content-Type":"application/json",
         "HTTP-Referer":"https://github.com/abdullah-x-bd/LLM_Persona",
-        "X-OpenRouter-Title":"LLM Persona Survey Validation","User-Agent":"LLM-Persona/2.0"})
-    with urllib.request.urlopen(req,timeout=timeout) as r: return json.loads(r.read().decode())
+        "X-OpenRouter-Title":"LLM Persona Survey Validation","User-Agent":"LLM-Persona/2.1"})
+    try:
+        with urllib.request.urlopen(req,timeout=timeout) as r: return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        detail=e.read().decode("utf-8",errors="replace")[:4000]
+        raise RuntimeError(f"OpenRouter HTTP {e.code}: {detail}") from e
 
 def run_one(row,model,schema,outcome_keys,provider,key,max_retries):
     body={"model":model,"messages":[{"role":"user","content":row["prompt"]}],
