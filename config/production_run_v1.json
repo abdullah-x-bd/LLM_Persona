@@ -1,0 +1,17 @@
+{
+  "run_id": "cams-luna-v1-2026-08-30",
+  "model": "openai/gpt-5.6-luna",
+  "provider": "openai",
+  "matched_respondents": 1000,
+  "conditions": ["rich", "thin"],
+  "total_requests": 2000,
+  "workflow_shards": 100,
+  "requests_per_shard": 20,
+  "max_parallel_shards": 5,
+  "concurrency_per_shard": 4,
+  "max_retries_per_request": 3,
+  "encrypted_bundle_b64_sha256": "807dae69388219fb94f50917c5caa25c2f74a47b38eca6da618f0c87a5c77ca8",
+  "encrypted_bundle_blob_sha256": "b91e0fa500f5f635fafb1b0fb3a7624e2c1c7d00407deb1275e9b2fd1258b612",
+  "truth_file_sha256_local_only": "23413a0419497caa1c436e787956ee25684633c3da4021232e6e921d0634affb",
+  "checkpointing": "Each successful response is fsynced immediately within its shard. Each 20-request shard is uploaded as a separate Actions artifact even if inference returns incomplete."
+}
