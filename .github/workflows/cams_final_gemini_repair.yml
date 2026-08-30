@@ -1,4 +1,4 @@
-# trigger registered final CAMS repair 2026-08-30
+# final single-run CAMS trigger 2026-08-30
 name: CAMS final Gemini checkpoint-aware repair
 
 on:
@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: cams-final-gemini-repair-v1
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
