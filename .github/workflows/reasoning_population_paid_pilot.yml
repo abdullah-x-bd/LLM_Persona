@@ -29,12 +29,12 @@ jobs:
           RPF_ENABLE_PILOT: YES_I_ACCEPT_PILOT_COST
         run: |
           rm -rf /tmp/rpf_canary
-          python reasoning_population_fidelity/src/paid_pilot.py --respondents 1 --spend-cap 0.01 --workdir /tmp/rpf_canary
+          python reasoning_population_fidelity/src/paid_pilot.py --respondents 1 --spend-cap 0.02 --workdir /tmp/rpf_canary
       - name: Upload canary engineering artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rpf-paid-canary-v2
+          name: rpf-paid-canary-v3
           path: /tmp/rpf_canary/pilot_output/
           retention-days: 30
       - name: Gate 20 respondent pilot on canary
@@ -46,6 +46,7 @@ jobs:
           assert x['all_schema_valid'] is True, x
           assert x['requests_schema_valid'] == 3, x
           assert x['failures'] == 0 and x['parse_failures'] == 0, x
+          assert x['known_realized_cost_usd'] is None or x['known_realized_cost_usd'] <= 0.02, x
           print('CANARY_GATE_PASS')
           PY
       - name: Run 20 respondent engineering pilot
@@ -54,12 +55,12 @@ jobs:
           RPF_ENABLE_PILOT: YES_I_ACCEPT_PILOT_COST
         run: |
           rm -rf /tmp/rpf_pilot20
-          python reasoning_population_fidelity/src/paid_pilot.py --respondents 20 --spend-cap 0.16 --workdir /tmp/rpf_pilot20
+          python reasoning_population_fidelity/src/paid_pilot.py --respondents 20 --spend-cap 0.38 --workdir /tmp/rpf_pilot20
       - name: Upload 20 respondent engineering artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rpf-paid-pilot20-v2
+          name: rpf-paid-pilot20-v3
           path: /tmp/rpf_pilot20/pilot_output/
           retention-days: 30
       - name: Final engineering gate
@@ -71,7 +72,7 @@ jobs:
           assert x['all_schema_valid'] is True, x
           assert x['requests_schema_valid'] == 60, x
           assert x['failures'] == 0 and x['parse_failures'] == 0, x
-          assert x['known_realized_cost_usd'] is None or x['known_realized_cost_usd'] <= 0.16, x
+          assert x['known_realized_cost_usd'] is None or x['known_realized_cost_usd'] <= 0.38, x
           print('PAID_PILOT_GATE_PASS')
           print(json.dumps(x, indent=2, sort_keys=True))
           PY
