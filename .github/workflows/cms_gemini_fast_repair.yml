@@ -1,4 +1,4 @@
-# registered trigger for CMS Gemini fast repair 2026-08-30
+# Google-Vertex-pinned CMS Gemini checkpoint repair
 name: CMS Gemini fast checkpoint repair
 
 on:
@@ -22,13 +22,14 @@ env:
   SURVEY: cms_telecom_2025
   BUNDLE: data/encrypted/cms_telecom_2025_codes.enc.b64
   SCHEMA: config/cms_telecom_2025_schema.json
+  LATEST_RUN_ID: '33289767514'
   PREVIOUS_RUN_ID: '33289091661'
 
 jobs:
   repair:
-    name: CMS Gemini fast chunk ${{ matrix.chunk }}
+    name: CMS Gemini Vertex chunk ${{ matrix.chunk }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -45,16 +46,22 @@ jobs:
           mkdir -p /tmp/prod /tmp/checkpoint /tmp/previous
           START=$(( ${{ matrix.chunk }} * 25 ))
           python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
-      - name: Restore any durable Gemini progress from cancelled run
+      - name: Restore newest durable Gemini progress
         run: |
           set -euo pipefail
-          NAME="cms-final-gemini-${{ matrix.chunk }}"
-          ARTIFACT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1 || true)
-          if [ -z "${ARTIFACT_ID}" ]; then
-            echo "No previous Gemini artifact for chunk ${{ matrix.chunk }}; starting this chunk from its frozen requests."
-            exit 0
+          LATEST_NAME="cms-fast-final-gemini-${{ matrix.chunk }}"
+          OLD_NAME="cms-final-gemini-${{ matrix.chunk }}"
+          ARTIFACT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LATEST_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${LATEST_NAME}\") | .id" | head -n1 || true)
+          if [ -n "${ARTIFACT_ID}" ]; then
+            echo "Restoring ${LATEST_NAME} artifact ${ARTIFACT_ID}"
+          else
+            ARTIFACT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${OLD_NAME}\") | .id" | head -n1 || true)
+            if [ -z "${ARTIFACT_ID}" ]; then
+              echo "No prior Gemini checkpoint for chunk ${{ matrix.chunk }}."
+              exit 0
+            fi
+            echo "Restoring ${OLD_NAME} artifact ${ARTIFACT_ID}"
           fi
-          echo "Restoring ${NAME} artifact ${ARTIFACT_ID}"
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/checkpoint.zip
           unzip -q /tmp/checkpoint.zip -d /tmp/previous
           python - <<'PY'
@@ -70,12 +77,12 @@ jobs:
           ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
           print({'restored_successful_unique':len(ok),'expected':25})
           PY
-      - name: Fast-cycle only unresolved Gemini requests
+      - name: Complete only unresolved Gemini rows on Google Vertex
         continue-on-error: true
         run: |
           set +e
-          for PASS in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            echo "CMS Gemini fast completion pass $PASS"
+          for PASS in 1 2 3 4 5 6; do
+            echo "CMS Gemini Google Vertex completion pass $PASS"
             python src/run_openrouter_gemini_fast.py \
               --requests /tmp/prod/requests.jsonl \
               --schema "$SCHEMA" \
@@ -83,6 +90,7 @@ jobs:
               --checkpoint /tmp/prod/checkpoint.json \
               --errors /tmp/prod/errors.jsonl \
               --model google/gemini-3.7-flash \
+              --provider google-vertex \
               --concurrency 6 --max-retries 0
             RC=$?
             if [ "$RC" -eq 0 ]; then exit 0; fi
@@ -100,7 +108,7 @@ jobs:
           p=Path('/tmp/prod/results.jsonl')
           rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
           n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
-          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25}
+          m={'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25,'provider':'google-vertex'}
           Path('/tmp/checkpoint/manifest.json').write_text(json.dumps(m,indent=2))
           print(m)
           PY
