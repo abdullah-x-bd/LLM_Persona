@@ -31,9 +31,11 @@ def test_identical_prompt_across_reasoning():
             assert all(r["generation_settings"]==cfg["study_1"]["generation_settings"] for r in group)
             assert len({json.dumps(r["generation_settings"],sort_keys=True) for r in group})==1
             off=[r for r in group if r["reasoning"]=="off"][0]
-            assert off["reasoning_settings"]=={"enabled":False,"max_completion_tokens":250}
+            low=[r for r in group if r["reasoning"]=="low"][0]
             medium=[r for r in group if r["reasoning"]=="medium"][0]
-            assert medium["reasoning_settings"]=={"effort":"medium","max_completion_tokens":1200}
+            assert off["reasoning_settings"]=={"enabled":False,"max_completion_tokens":250}
+            assert low["reasoning_settings"]=={"effort":"low","max_completion_tokens":900}
+            assert medium["reasoning_settings"]=={"effort":"medium","max_completion_tokens":1500}
 
 def make_tiny_cams_zip(path):
     hh_fields=["ST","NSS","DIST","STRM","SSTRM","SR","SRO","FC","FSU","SSS","SSU","BL41I1","BL41I2","BL41I3","BL41I4","BL6I6"]
