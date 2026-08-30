@@ -1,4 +1,4 @@
-# resilient CMS Gemini checkpoint repair
+# corrected-json-repair CMS Gemini checkpoint repair
 name: CMS Gemini fast checkpoint repair
 
 on:
@@ -22,7 +22,7 @@ env:
   SURVEY: cms_telecom_2025
   BUNDLE: data/encrypted/cms_telecom_2025_codes.enc.b64
   SCHEMA: config/cms_telecom_2025_schema.json
-  LATEST_RUN_ID: '33289984899'
+  LATEST_RUN_ID: '33290160951'
   PREVIOUS_RUN_ID: '33289091661'
 
 jobs:
