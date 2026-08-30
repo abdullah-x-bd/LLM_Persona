@@ -1,0 +1,76 @@
+name: Reasoning population Study 1 resume
+
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/STUDY1_RESUME_RUN_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resume-study1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install numpy pandas cryptography
+      - name: Download preserved Study 1 checkpoint artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/rpf_seed /tmp/rpf_resume && mkdir -p /tmp/rpf_seed /tmp/rpf_resume
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9732220571/zip \
+            -o /tmp/rpf_seed.zip
+          unzip -q /tmp/rpf_seed.zip -d /tmp/rpf_seed
+          test -f /tmp/rpf_seed/study1_summary.json
+          test -f /tmp/rpf_seed/production_requests.json
+          test -f /tmp/rpf_seed/raw_results.enc.b64
+      - name: Compile resume code
+        run: python -m compileall -q reasoning_population_fidelity/src
+      - name: Recheck live model metadata without inference
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python reasoning_population_fidelity/src/online_preflight.py
+      - name: Resume only the missing frozen Study 1 requests
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          RPF_ENABLE_STUDY1_RESUME: YES_I_ACCEPT_STUDY1_RESUME_COST
+        run: |
+          python reasoning_population_fidelity/src/resume_study1.py \
+            --seed-dir /tmp/rpf_seed \
+            --workdir /tmp/rpf_resume
+      - name: Upload combined encrypted resumed Study 1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpf-study1-resumed-combined-v1
+          path: /tmp/rpf_resume/study1_resume_output/
+          retention-days: 30
+      - name: Final resumed Study 1 integrity gate
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          p='/tmp/rpf_resume/study1_resume_output/study1_summary.json'
+          x=json.load(open(p))
+          assert x['requests_planned'] == 3000, x
+          assert x['requests_schema_valid'] == 3000, x
+          assert x['remaining_failures'] == 0, x
+          assert x['all_schema_valid'] is True, x
+          assert x['condition_valid_counts'] == {'off':1000,'low':1000,'medium':1000}, x
+          assert x['combined_realized_or_guard_cost_usd'] <= 7.80, x
+          assert x['provider_order'] == ['akashml/fp8'], x
+          assert x['allow_provider_fallbacks'] is False, x
+          assert x['provider_data_collection'] == 'deny', x
+          print('STUDY1_RESUME_FINAL_GATE_PASS')
+          print(json.dumps(x, indent=2, sort_keys=True))
+          PY
