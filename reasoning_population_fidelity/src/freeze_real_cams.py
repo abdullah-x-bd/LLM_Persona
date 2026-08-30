@@ -45,19 +45,16 @@ def encrypted_sha(path: Path) -> str:
 def build_base(out: Path) -> dict:
     code_text = legacy_runtime.decrypt_bundle(CODES_BUNDLE, legacy_runtime.CODES_AAD).decode("utf-8")
     truth_text = legacy_runtime.decrypt_bundle(TRUTH_BUNDLE, legacy_runtime.TRUTH_AAD).decode("utf-8")
-
     code_rows = list(csv.DictReader(StringIO(code_text)))
     truth_rows = list(csv.DictReader(StringIO(truth_text)))
     if len(code_rows) != 1000 or len(truth_rows) != 1000:
         raise AssertionError((len(code_rows), len(truth_rows)))
-
     code_ids = [r["anon_id"] for r in code_rows]
     truth_ids = [r["anon_id"] for r in truth_rows]
     if len(set(code_ids)) != 1000 or len(set(truth_ids)) != 1000:
         raise AssertionError("Duplicate frozen CAMS IDs")
     if set(code_ids) != set(truth_ids):
         raise AssertionError("Frozen persona and truth ID sets differ")
-
     rows = []
     for raw in sorted(code_rows, key=lambda r: r["anon_id"]):
         decoded = legacy_runtime.decode_row(raw)
@@ -65,7 +62,6 @@ def build_base(out: Path) -> dict:
         validate_persona(persona)
         prompt = build_prompt(persona)
         rows.append({"anon_id": raw["anon_id"], "persona": persona, "prompt": prompt})
-
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
         for row in rows:
@@ -80,6 +76,9 @@ def build_base(out: Path) -> dict:
 
 def freeze(base: Path, requests: Path, manifest: Path) -> dict:
     cfg = load_config(CONFIG)
+    expected_conditions = set(cfg["study_1"]["reasoning_conditions"])
+    if expected_conditions != {"off", "low", "xhigh"}:
+        raise AssertionError(f"Unexpected treatment set: {sorted(expected_conditions)}")
     build_info = build_base(base)
     expansion = expand(base, requests, CONFIG, SCHEMA)
     rows = load_jsonl(requests)
@@ -88,7 +87,6 @@ def freeze(base: Path, requests: Path, manifest: Path) -> dict:
         raise AssertionError(errors[:20])
     if len(rows) != 3000 or expansion["respondents"] != 1000:
         raise AssertionError(expansion)
-
     by_id: dict[str, list[dict]] = {}
     for r in rows:
         by_id.setdefault(r["anon_id"], []).append(r)
@@ -99,28 +97,27 @@ def freeze(base: Path, requests: Path, manifest: Path) -> dict:
             raise AssertionError(f"{anon_id}: expected 3 requests")
         if len({g["prompt"] for g in grp}) != 1:
             raise AssertionError(f"{anon_id}: prompt differs across reasoning conditions")
-        if {g["reasoning"] for g in grp} != {"none", "low", "high"}:
+        if {g["reasoning"] for g in grp} != expected_conditions:
             raise AssertionError(f"{anon_id}: wrong reasoning conditions")
-
+        if len({json.dumps(g["generation_settings"], sort_keys=True) for g in grp}) != 1:
+            raise AssertionError(f"{anon_id}: generation settings differ across conditions")
     unique_prompts = [grp[0]["prompt"] for grp in by_id.values()]
     prompt_chars = [len(p) for p in unique_prompts]
     prompt_tokens = [approx_tokens(p) for p in unique_prompts]
     repeated_input_tokens = sum(approx_tokens(r["prompt"]) for r in rows)
     hard_completion_tokens = sum(int(r["reasoning_settings"]["max_completion_tokens"]) for r in rows)
-
     pm = cfg["primary_model"]
     current_price_cost = repeated_input_tokens / 1e6 * pm["input_usd_per_million"] + hard_completion_tokens / 1e6 * pm["output_usd_per_million"]
     ceiling = cfg["run_policy"]["provider_max_price_usd_per_million"]
     provider_ceiling_cost = repeated_input_tokens / 1e6 * ceiling["prompt"] + hard_completion_tokens / 1e6 * ceiling["completion"]
-
     req_bytes = requests.read_bytes()
     request_ids = [r["request_id"] for r in rows]
     result = {
-        "freeze_version": 1,
+        "freeze_version": 2,
         "experiment": "CAMS reasoning population fidelity",
         "respondents": 1000,
         "requests": 3000,
-        "conditions": ["none", "low", "high"],
+        "conditions": ["off", "low", "xhigh"],
         "model": pm["id"],
         "outcomes": cfg["outcomes"],
         "paid_inference_performed": False,
@@ -141,34 +138,20 @@ def freeze(base: Path, requests: Path, manifest: Path) -> dict:
             "unique_request_ids": len(set(request_ids)),
             "requests_per_respondent": 3,
             "byte_identical_prompt_across_conditions": True,
+            "generation_settings_identical_across_conditions": True,
             "persona_leakage_scan": "PASS",
             "expanded_request_validation": "PASS",
             "truth_id_set_matches_persona_id_set": True,
         },
         "prompt_distribution_per_unique_respondent": {
-            "characters": {
-                "min": min(prompt_chars),
-                "median": statistics.median(prompt_chars),
-                "mean": round(statistics.mean(prompt_chars), 3),
-                "p95": round(pct(prompt_chars, 0.95), 3),
-                "max": max(prompt_chars),
-            },
-            "conservative_approx_tokens_len_over_3_2": {
-                "min": min(prompt_tokens),
-                "median": statistics.median(prompt_tokens),
-                "mean": round(statistics.mean(prompt_tokens), 3),
-                "p95": round(pct(prompt_tokens, 0.95), 3),
-                "max": max(prompt_tokens),
-            },
-            "note": "These are deterministic conservative preflight estimates. Provider-billed tokenizer counts are measured in the engineering pilot before the full-run sample size is unlocked.",
+            "characters": {"min": min(prompt_chars), "median": statistics.median(prompt_chars), "mean": round(statistics.mean(prompt_chars), 3), "p95": round(pct(prompt_chars, 0.95), 3), "max": max(prompt_chars)},
+            "conservative_approx_tokens_len_over_3_2": {"min": min(prompt_tokens), "median": statistics.median(prompt_tokens), "mean": round(statistics.mean(prompt_tokens), 3), "p95": round(pct(prompt_tokens, 0.95), 3), "max": max(prompt_tokens)},
+            "note": "Deterministic conservative preflight estimates. Provider-billed tokenizer counts are measured in the engineering pilot before the full run."
         },
         "budget_projection": {
             "repeated_input_tokens_conservative": repeated_input_tokens,
             "hard_capped_completion_tokens": hard_completion_tokens,
-            "configured_routed_price_usd_per_million": {
-                "input": pm["input_usd_per_million"],
-                "output": pm["output_usd_per_million"],
-            },
+            "configured_routed_price_usd_per_million": {"input": pm["input_usd_per_million"], "output": pm["output_usd_per_million"]},
             "configured_price_projection_usd": round(current_price_cost, 6),
             "hard_provider_ceiling_usd_per_million": ceiling,
             "provider_ceiling_projection_usd": round(provider_ceiling_cost, 6),
@@ -176,12 +159,12 @@ def freeze(base: Path, requests: Path, manifest: Path) -> dict:
             "absolute_project_spend_cap_usd": cfg["hard_spend_cap_usd"],
         },
         "reasoning_completion_caps": cfg["study_1"]["reasoning_conditions"],
+        "generation_settings": cfg["study_1"]["generation_settings"],
     }
     if result["budget_projection"]["provider_ceiling_projection_usd"] > cfg["study_1"]["study_budget_cap_usd"]:
         raise AssertionError("Worst-case provider-ceiling projection exceeds Study 1 cap")
     if result["invariants"]["unique_request_ids"] != 3000:
         raise AssertionError("Request IDs are not unique")
-
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     return result
@@ -195,7 +178,6 @@ def main() -> None:
     work.mkdir(parents=True, exist_ok=True)
     result = freeze(work / "base.jsonl", work / "requests.jsonl", work / "freeze_manifest.json")
     print(json.dumps(result, indent=2, sort_keys=True))
-
 
 if __name__ == "__main__":
     main()
