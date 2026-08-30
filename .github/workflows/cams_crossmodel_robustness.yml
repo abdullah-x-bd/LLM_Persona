@@ -1,0 +1,185 @@
+name: CAMS cross-model robustness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cams_crossmodel_robustness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cams-crossmodel-robustness-v1
+  cancel-in-progress: false
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  gemini:
+    name: Gemini CAMS chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - name: Reconstruct frozen CAMS shard
+        run: |
+          mkdir -p /tmp/prod /tmp/checkpoint
+          python src/production_runtime.py requests --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 --out-requests /tmp/prod/requests.jsonl --out-schema /tmp/prod/schema.json --chunk ${{ matrix.chunk }} --chunk-size 25
+      - name: Run Gemini shard
+        continue-on-error: true
+        run: python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema /tmp/prod/schema.json --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --concurrency 3 --max-retries 3
+      - name: Encrypt durable shard
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/production_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/checkpoint/cams__gemini__chunk-${C}.results.enc.b64" --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          c=int('${{ matrix.chunk }}'); p=Path('/tmp/prod/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          Path('/tmp/checkpoint/manifest.json').write_text(json.dumps({'chunk':c,'successful':n,'expected':25},indent=2))
+          PY
+      - name: Upload encrypted shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cams-gemini-${{ matrix.chunk }}
+          path: /tmp/checkpoint/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Require complete shard
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open('/tmp/checkpoint/manifest.json'))
+          assert s['successful']==25, f"Incomplete shard: {s}"
+          PY
+
+  claude:
+    name: Claude CAMS chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - name: Reconstruct frozen CAMS shard
+        run: |
+          mkdir -p /tmp/prod /tmp/checkpoint
+          python src/production_runtime.py requests --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 --out-requests /tmp/prod/requests.jsonl --out-schema /tmp/prod/schema.json --chunk ${{ matrix.chunk }} --chunk-size 25
+      - name: Run Claude Sonnet 5 shard
+        continue-on-error: true
+        run: python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema /tmp/prod/schema.json --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model anthropic/claude-sonnet-5 --provider anthropic --concurrency 3 --max-retries 3
+      - name: Encrypt durable shard
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/production_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/checkpoint/cams__claude__chunk-${C}.results.enc.b64" --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          c=int('${{ matrix.chunk }}'); p=Path('/tmp/prod/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          Path('/tmp/checkpoint/manifest.json').write_text(json.dumps({'chunk':c,'successful':n,'expected':25},indent=2))
+          PY
+      - name: Upload encrypted shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cams-claude-${{ matrix.chunk }}
+          path: /tmp/checkpoint/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Require complete shard
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open('/tmp/checkpoint/manifest.json'))
+          assert s['successful']==25, f"Incomplete shard: {s}"
+          PY
+
+  aggregate-gemini:
+    name: Aggregate CAMS Gemini subset
+    if: always()
+    needs: gemini
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cams-gemini-*
+          path: /tmp/chunks
+      - name: Combine and encrypt 500-request subset
+        run: |
+          mkdir -p /tmp/out
+          python src/production_runtime.py combine --root /tmp/chunks --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python - <<'PY'
+          import json
+          p='/tmp/out/manifest.json'; m=json.load(open(p)); m['expected']=500; m['complete']=m['successful_unique_requests']==500; m['scope']='first_250_frozen_respondents_both_conditions'; open(p,'w').write(json.dumps(m,indent=2)); assert m['complete'], m
+          PY
+          python src/production_runtime.py encrypt-combined --in /tmp/out/results.jsonl --out /tmp/out/cams_gemini_results_combined.enc.b64
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cams-gemini-aggregate
+          path: /tmp/out/
+          retention-days: 30
+
+  aggregate-claude:
+    name: Aggregate CAMS Claude subset
+    if: always()
+    needs: claude
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cams-claude-*
+          path: /tmp/chunks
+      - name: Combine and encrypt 500-request subset
+        run: |
+          mkdir -p /tmp/out
+          python src/production_runtime.py combine --root /tmp/chunks --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python - <<'PY'
+          import json
+          p='/tmp/out/manifest.json'; m=json.load(open(p)); m['expected']=500; m['complete']=m['successful_unique_requests']==500; m['scope']='first_250_frozen_respondents_both_conditions'; open(p,'w').write(json.dumps(m,indent=2)); assert m['complete'], m
+          PY
+          python src/production_runtime.py encrypt-combined --in /tmp/out/results.jsonl --out /tmp/out/cams_claude_results_combined.enc.b64
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cams-claude-aggregate
+          path: /tmp/out/
+          retention-days: 30
