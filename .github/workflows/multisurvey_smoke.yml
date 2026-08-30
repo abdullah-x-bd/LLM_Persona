@@ -1,0 +1,65 @@
+name: Multi-survey paid smoke
+
+on:
+  push:
+    paths:
+      - '.github/workflows/multisurvey_smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cms-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model: openai/gpt-5.6-luna
+            provider: openai
+            label: luna
+          - model: google/gemini-3.7-flash
+            provider: google-vertex
+            label: gemini
+          - model: anthropic/claude-sonnet-5
+            provider: anthropic
+            label: claude
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - name: Reconstruct exactly one frozen CMS request
+        run: |
+          python src/multisurvey_request_builder.py \
+            --bundle data/encrypted/cms_telecom_2025_codes.enc.b64 \
+            --survey cms_telecom_2025 \
+            --out /tmp/request.jsonl --start 0 --count 1
+      - name: One paid structured-output call
+        run: |
+          python src/run_openrouter_v2.py \
+            --requests /tmp/request.jsonl \
+            --schema config/cms_telecom_2025_schema.json \
+            --out /tmp/result.jsonl \
+            --checkpoint /tmp/checkpoint.json \
+            --errors /tmp/errors.jsonl \
+            --model '${{ matrix.model }}' \
+            --provider '${{ matrix.provider }}' \
+            --concurrency 1 --max-retries 1
+      - name: Verify exact model/provider and schema
+        run: |
+          python - <<'PY'
+          import json
+          r=json.loads(open('/tmp/result.jsonl').readline())
+          assert r['model_requested']=='${{ matrix.model }}'
+          assert r['model_returned']=='${{ matrix.model }}', r
+          provider=(r.get('provider_returned') or '').lower()
+          expected='${{ matrix.provider }}'.replace('-vertex','')
+          assert expected.split('-')[0] in provider, (provider,expected)
+          print(json.dumps({'PASS':True,'label':'${{ matrix.label }}','model':r['model_returned'],'provider':r.get('provider_returned'),'prompt_tokens':r.get('prompt_tokens'),'completion_tokens':r.get('completion_tokens')},indent=2))
+          PY
