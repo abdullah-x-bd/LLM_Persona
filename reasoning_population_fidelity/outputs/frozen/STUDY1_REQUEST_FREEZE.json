@@ -1,12 +1,12 @@
 {
-  "freeze_version": 2,
-  "format_revision": "compact-v1-xhigh1600",
+  "freeze_version": 3,
+  "format_revision": "compact-v1-medium1200",
   "experiment": "CAMS reasoning population fidelity",
-  "source_preflight_run_id": 33306503459,
-  "source_commit": "719d2871663cd3cf914a987a723971698796b5f9",
+  "source_preflight_run_id": 33307231495,
+  "source_commit": "717f30c2687d9f7429489ff4722d8daa720ac1e2",
   "respondents": 1000,
   "requests": 3000,
-  "conditions": ["off", "low", "xhigh"],
+  "conditions": ["off", "low", "medium"],
   "model": "qwen/qwen3.8-27b",
   "outcomes": ["mobile_ability","mobile_3m","computer_ability","internet_ability","internet_3m","copy_paste"],
   "paid_inference_performed": false,
@@ -17,9 +17,9 @@
   },
   "hashes": {
     "base_jsonl_sha256": "7a1e07742ae070c9dd335c90da64aa6072d137314cdf7a8a9d35b9057be893a1",
-    "config_sha256": "e72149985afc168d6496e5dc413b7c3e130b58972ff9750c8f881c941c832a26",
-    "request_id_set_sha256": "9bc3c2fa364222da3108cd4e31bec8fbc1d015529c9b049cd91a24476232323b",
-    "requests_jsonl_sha256": "0b064ea22cded76aba3e58b7552f8355e2192fd7c8cf1623ac8639dfde34d089",
+    "config_sha256": "911d938432642f4c0ff4b19689befe65c03bf30c639d700bb968f87b782b0e9c",
+    "request_id_set_sha256": "58f1d66809e6c1132cee6be4d91d8a014f771c3c3113646d0424ebccc2616c63",
+    "requests_jsonl_sha256": "dc5653f25d8d8ff8c857ea717d1be20e0767bde31accf7c6299c3f456121d129",
     "schema_sha256": "36d51333025d20b7d6118e9f5759b748c3883817446f3eca1acaaf59ff2b1230"
   },
   "invariants": {
@@ -36,7 +36,7 @@
   "reasoning_completion_caps": {
     "off": {"enabled": false, "max_completion_tokens": 250},
     "low": {"effort": "low", "max_completion_tokens": 600},
-    "xhigh": {"effort": "xhigh", "max_completion_tokens": 1600}
+    "medium": {"effort": "medium", "max_completion_tokens": 1200}
   },
   "prompt_distribution_per_unique_respondent": {
     "characters": {"min": 1952, "median": 2030.5, "mean": 2025.549, "p95": 2058.0, "max": 2082},
@@ -44,11 +44,11 @@
   },
   "budget_projection": {
     "repeated_input_tokens_conservative": 1900359,
-    "hard_capped_completion_tokens": 2450000,
+    "hard_capped_completion_tokens": 2050000,
     "configured_routed_price_usd_per_million": {"input": 0.425, "output": 2.55},
-    "configured_price_projection_usd": 7.055153,
+    "configured_price_projection_usd": 6.035153,
     "hard_provider_ceiling_usd_per_million": {"prompt": 0.45, "completion": 2.6},
-    "provider_ceiling_projection_usd": 7.225162,
+    "provider_ceiling_projection_usd": 6.185162,
     "study_1_cap_usd": 7.8,
     "absolute_project_spend_cap_usd": 9.5
   },
@@ -57,6 +57,6 @@
     "endpoints": ["AkashML", "Alibaba"],
     "all_reported_healthy": true
   },
-  "engineering_change_reason": "Paid canaries showed off and low schema-valid while xhigh returned null final content at max_tokens 1200 even after compacting the machine response. Xhigh was increased to 1600 to provide final-answer headroom. To preserve the original Study 1 budget, provider routing was tightened to prompt <= $0.45/M and completion <= $2.60/M. The zero-cost live preflight found two healthy eligible endpoints. No human truth or predictive performance was inspected during these engineering changes.",
-  "note": "This hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
+  "engineering_change_reason": "Three paid engineering canaries demonstrated that xhigh did not reliably return usable final structured content under completion ceilings compatible with the frozen Study 1 budget, while off and low were schema-valid. No human truth was loaded for scoring and no substantive predictive performance was inspected. The highest treatment was therefore changed to the model's next-highest native effort, medium, with a 1200-token completion ceiling. Prompt, personas, sample, outcomes, schema, model, generation settings, paired design, and analysis direction remain unchanged.",
+  "note": "This version-3 off/low/medium hash set supersedes all earlier Study 1 request freezes. Every paid run reconstructs all 3000 requests from encrypted frozen CAMS data and must reproduce these hashes before inference."
 }
