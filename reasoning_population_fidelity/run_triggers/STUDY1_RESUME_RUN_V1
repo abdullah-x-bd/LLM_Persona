@@ -1,3 +1,4 @@
-Authorized partial Study 1 resume from preserved production checkpoint artifact 9732220571.
+Authorized final Study 1 resume from preserved checkpoint artifact 9736843943.
 Use frozen request hash 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293.
-Resume only missing requests. Concurrency 2. Batch size 12. Preserve checkpoint on credit floor or 402.
+Seed state: 2574 valid, 426 missing. Resume only missing requests.
+Use live-credit preflight. If fully funded, run full-speed concurrency 8 and batch size 48. Preserve combined encrypted checkpoint and enforce the original Study 1 $7.80 cap.
