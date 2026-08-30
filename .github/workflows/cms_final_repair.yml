@@ -1,0 +1,191 @@
+name: CMS final checkpoint-aware repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cms_final_repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cms-final-repair-v1
+  cancel-in-progress: false
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  SURVEY: cms_telecom_2025
+  BUNDLE: data/encrypted/cms_telecom_2025_codes.enc.b64
+  SCHEMA: config/cms_telecom_2025_schema.json
+  SOURCE_RUN_ID: '33288385482'
+
+jobs:
+  claude-repair:
+    name: Claude repair chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - name: Reconstruct frozen request shard
+        run: |
+          mkdir -p /tmp/prod /tmp/source /tmp/checkpoint
+          START=$(( ${{ matrix.chunk }} * 25 ))
+          python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
+      - name: Restore paid Claude successes from source run
+        uses: actions/download-artifact@v4
+        with:
+          name: cms-claude-${{ matrix.chunk }}
+          path: /tmp/source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Decrypt source checkpoint into resumable result file
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from src.multisurvey_runtime import decrypt_result
+          chunk=int('${{ matrix.chunk }}')
+          files=list(Path('/tmp/source').rglob('*.results.enc.b64'))
+          assert len(files)==1, files
+          raw=decrypt_result(files[0],'cms_telecom_2025','claude',chunk)
+          Path('/tmp/prod/results.jsonl').write_bytes(raw)
+          print('restored successful rows:', len([x for x in raw.splitlines() if x.strip()]))
+          PY
+      - name: Retry only missing Claude requests until complete
+        id: infer
+        continue-on-error: true
+        run: |
+          set +e
+          for PASS in 1 2 3 4 5 6; do
+            echo "Claude repair pass $PASS"
+            python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema "$SCHEMA" --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model anthropic/claude-sonnet-5 --provider anthropic --concurrency 2 --max-retries 4
+            RC=$?
+            if [ "$RC" -eq 0 ]; then exit 0; fi
+            sleep $((PASS * 3))
+          done
+          exit 1
+      - name: Encrypt final Claude checkpoint
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/multisurvey_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/checkpoint/${SURVEY}__claude__chunk-${C}.results.enc.b64" --survey "$SURVEY" --model claude --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/prod/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          Path('/tmp/checkpoint/manifest.json').write_text(json.dumps({'model':'claude','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25},indent=2))
+          PY
+      - name: Upload final Claude shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-final-claude-${{ matrix.chunk }}
+          path: /tmp/checkpoint/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Require complete Claude shard
+        if: always()
+        run: python -c "import json; m=json.load(open('/tmp/checkpoint/manifest.json')); assert m['complete'],m"
+
+  gemini:
+    name: Gemini final chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - name: Reconstruct frozen Gemini shard
+        run: |
+          mkdir -p /tmp/prod /tmp/checkpoint
+          START=$(( ${{ matrix.chunk }} * 25 ))
+          python src/multisurvey_request_builder.py --bundle "$BUNDLE" --survey "$SURVEY" --out /tmp/prod/requests.jsonl --start "$START" --count 25
+      - name: Retry only unresolved Gemini requests until complete
+        id: infer
+        continue-on-error: true
+        run: |
+          set +e
+          for PASS in 1 2 3 4 5 6 7 8; do
+            echo "Gemini repair pass $PASS"
+            python src/run_openrouter_v2.py --requests /tmp/prod/requests.jsonl --schema "$SCHEMA" --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --concurrency 2 --max-retries 4
+            RC=$?
+            if [ "$RC" -eq 0 ]; then exit 0; fi
+            sleep $((PASS * 3))
+          done
+          exit 1
+      - name: Encrypt final Gemini checkpoint
+        if: always()
+        run: |
+          C=$(printf '%03d' ${{ matrix.chunk }})
+          python src/multisurvey_runtime.py encrypt-results --in /tmp/prod/results.jsonl --out "/tmp/checkpoint/${SURVEY}__gemini__chunk-${C}.results.enc.b64" --survey "$SURVEY" --model gemini --chunk ${{ matrix.chunk }}
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/prod/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          n=len({(r['anon_id'],r['condition']) for r in rows if 'error' not in r})
+          Path('/tmp/checkpoint/manifest.json').write_text(json.dumps({'model':'gemini','chunk':int('${{ matrix.chunk }}'),'successful':n,'expected':25,'complete':n==25},indent=2))
+          PY
+      - name: Upload final Gemini shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-final-gemini-${{ matrix.chunk }}
+          path: /tmp/checkpoint/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Require complete Gemini shard
+        if: always()
+        run: python -c "import json; m=json.load(open('/tmp/checkpoint/manifest.json')); assert m['complete'],m"
+
+  aggregate:
+    name: Aggregate repaired ${{ matrix.model }}
+    if: always()
+    needs: [claude-repair, gemini]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [claude, gemini]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cms-final-${{ matrix.model }}-*
+          path: /tmp/chunks
+      - name: Combine and verify 250 unique responses
+        run: |
+          mkdir -p /tmp/out
+          python src/multisurvey_runtime.py combine --root /tmp/chunks --survey "$SURVEY" --model '${{ matrix.model }}' --expected 250 --out /tmp/out/results.jsonl --manifest /tmp/out/manifest.json
+          python -c "import json; m=json.load(open('/tmp/out/manifest.json')); assert m['complete'],m"
+          rm /tmp/out/results.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cms-final-${{ matrix.model }}-aggregate
+          path: /tmp/out/
+          retention-days: 30
