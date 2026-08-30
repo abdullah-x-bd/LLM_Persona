@@ -20,7 +20,7 @@ FORBIDDEN_PERSONA_TERMS = [
     "laptop","tablet","email","digital payment","copy-and-paste",
     "copy and paste","bank account","banking"
 ]
-ALLOWED_REASONING = {"off","low","xhigh"}
+ALLOWED_REASONING = {"off","low","medium"}
 
 def canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",",":"), ensure_ascii=False)
@@ -64,9 +64,6 @@ def validate_persona(persona: str) -> None:
         raise AssertionError(f"Outcome leakage terms in persona: {hits}")
 
 def validate_response(obj: Any, outcomes=OUTCOMES) -> dict:
-    # Production structured output is deliberately compact so xhigh reasoning leaves
-    # enough of max_tokens for the final answer. Normalize it immediately into the
-    # canonical outcome-keyed representation used everywhere downstream.
     if isinstance(obj,dict) and set(obj) == {"a","p"}:
         answers=obj["a"]; probs=obj["p"]
         if not isinstance(answers,list) or not isinstance(probs,list) or len(answers)!=len(outcomes) or len(probs)!=len(outcomes):
@@ -94,7 +91,7 @@ def validate_response(obj: Any, outcomes=OUTCOMES) -> dict:
     return obj
 
 def deterministic_mock(row: dict) -> dict:
-    condition_shift = {"off":-0.03,"low":0.0,"xhigh":0.03}[row["reasoning"]]
+    condition_shift = {"off":-0.03,"low":0.0,"medium":0.03}[row["reasoning"]]
     out = {}
     for k in OUTCOMES:
         raw = int.from_bytes(hashlib.sha256(
