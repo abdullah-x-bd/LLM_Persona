@@ -1,0 +1,15 @@
+{
+  "generated_at_unix": 1788081166.8719208,
+  "config_sha256": "323fab6e4d6055097805c1d10e841770c8255eed8689c58619e09ac124324bf3",
+  "requests_sha256": "199ac515efa3ecbf97df15360b09423763b607cd7d9e13cc16ca2e686fdcf1cc",
+  "checks": [
+    {"check":"paid_disabled","status":"PASS","detail":"paid_runs_enabled=False"},
+    {"check":"budget_identity","status":"PASS","detail":"budget=10.3, cap=9.5, reserve=0.8"},
+    {"check":"request_integrity","status":"PASS","detail":"no integrity errors"},
+    {"check":"schema_parser","status":"PASS","detail":"10 mock payloads validated"},
+    {"check":"cost_estimator","status":"PASS","detail":"{\"conservative_input_tokens\": 9768, \"hard_capped_completion_tokens\": 6480, \"request_count\": 18, \"worst_case_cost_usd\": 0.021239}"}
+  ],
+  "cost_projection": {"request_count":18,"conservative_input_tokens":9768,"hard_capped_completion_tokens":6480,"worst_case_cost_usd":0.021239},
+  "all_passed": true,
+  "paid_inference_performed": false
+}
