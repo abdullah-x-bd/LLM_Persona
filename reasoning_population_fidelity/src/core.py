@@ -49,9 +49,10 @@ def build_prompt(persona: str) -> str:
         "and do not add facts that are not in the profile. Give the response that this particular "
         "person would most plausibly give. Do not explain your reasoning.\n\n"
         "PERSON PROFILE\n"+persona+
-        "\n\nFor every question return (a) answer, exactly 'yes' or 'no', and "
-        "(b) probability_yes, a number from 0 to 1 representing your uncertainty that this "
-        "specific respondent would answer yes.\n\nQUESTIONS\n"+questions+"\n"
+        "\n\nAnswer all six questions in the listed order. In field a, return six hard answers as integers: "
+        "1 means yes and 0 means no. In field p, return six numbers from 0 to 1 giving the "
+        "probability that this specific respondent would answer yes. Keep exactly the question order.\n\n"
+        "QUESTIONS\n"+questions+"\n"
     )
 
 def validate_persona(persona: str) -> None:
@@ -63,6 +64,22 @@ def validate_persona(persona: str) -> None:
         raise AssertionError(f"Outcome leakage terms in persona: {hits}")
 
 def validate_response(obj: Any, outcomes=OUTCOMES) -> dict:
+    # Production structured output is deliberately compact so xhigh reasoning leaves
+    # enough of max_tokens for the final answer. Normalize it immediately into the
+    # canonical outcome-keyed representation used everywhere downstream.
+    if isinstance(obj,dict) and set(obj) == {"a","p"}:
+        answers=obj["a"]; probs=obj["p"]
+        if not isinstance(answers,list) or not isinstance(probs,list) or len(answers)!=len(outcomes) or len(probs)!=len(outcomes):
+            raise ValueError("Compact response must contain six answers and six probabilities")
+        canonical={}
+        for key,a,p in zip(outcomes,answers,probs):
+            if isinstance(a,bool) or not isinstance(a,int) or a not in {0,1}:
+                raise ValueError(f"Invalid compact answer for {key}")
+            if isinstance(p,bool) or not isinstance(p,(int,float)) or not 0 <= float(p) <= 1:
+                raise ValueError(f"Invalid compact probability for {key}")
+            canonical[key]={"answer":"yes" if a==1 else "no","probability_yes":float(p)}
+        obj.clear(); obj.update(canonical)
+        return obj
     if not isinstance(obj,dict) or set(obj) != set(outcomes):
         raise ValueError("Response has wrong top-level keys")
     for key in outcomes:
