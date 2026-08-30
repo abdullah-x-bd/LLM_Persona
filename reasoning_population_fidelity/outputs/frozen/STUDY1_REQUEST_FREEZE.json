@@ -1,0 +1,66 @@
+{
+  "freeze_version": 1,
+  "experiment": "CAMS reasoning population fidelity",
+  "source_preflight_run_id": 33304890335,
+  "source_commit": "c6f3e142893dfd74962fd37333f54d4da395844a",
+  "respondents": 1000,
+  "requests": 3000,
+  "conditions": ["none", "low", "high"],
+  "model": "qwen/qwen3.8-27b",
+  "outcomes": [
+    "mobile_ability",
+    "mobile_3m",
+    "computer_ability",
+    "internet_ability",
+    "internet_3m",
+    "copy_paste"
+  ],
+  "paid_inference_performed": false,
+  "plaintext_committed": false,
+  "encrypted_sources": {
+    "codes_bundle_sha256": "890c2749bfda55a2c08e9e617c5e080be23e4579641a94800360851cb17e1f8f",
+    "truth_bundle_sha256": "70e7cc572a9b2991344261a1ec3e32de32892bcc2f791b1f40b93948f839ed05"
+  },
+  "hashes": {
+    "base_jsonl_sha256": "220f099d766326887460eaf4049777e70ea3d8d472b1fe284c0abb54a9a5f5ed",
+    "config_sha256": "7bf1f331d648f34975d56a2df0b55f889c7b7a16f2c672d10e4da068a72bdd72",
+    "request_id_set_sha256": "bea7a7e7d3c28ed9a87c95ad018859f481d7a6a4d4446de2ab6048010646f59b",
+    "requests_jsonl_sha256": "f27365c9c5b8275c374b35a3f80cee22102e9e200a921a1896ad37b9ef5391d9",
+    "schema_sha256": "e2b106a5afb2c771512cc5b203196e117ab2a90724e5b0ca9a6a7caf5a656ac4"
+  },
+  "invariants": {
+    "unique_respondent_ids": 1000,
+    "unique_request_ids": 3000,
+    "requests_per_respondent": 3,
+    "byte_identical_prompt_across_conditions": true,
+    "generation_settings_identical_across_conditions": true,
+    "persona_leakage_scan": "PASS",
+    "expanded_request_validation": "PASS",
+    "truth_id_set_matches_persona_id_set": true
+  },
+  "generation_settings": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "structured_output": "json_schema_strict"
+  },
+  "reasoning_completion_caps": {
+    "none": {"effort": "none", "max_completion_tokens": 200},
+    "low": {"effort": "low", "max_completion_tokens": 300},
+    "high": {"effort": "high", "max_completion_tokens": 400}
+  },
+  "prompt_distribution_per_unique_respondent": {
+    "characters": {"min": 1867, "median": 1945.5, "mean": 1940.549, "p95": 1973.0, "max": 1997},
+    "conservative_approx_tokens_len_over_3_2": {"min": 584, "median": 608.5, "mean": 606.891, "p95": 617.0, "max": 625}
+  },
+  "budget_projection": {
+    "repeated_input_tokens_conservative": 1820673,
+    "hard_capped_completion_tokens": 900000,
+    "configured_routed_price_usd_per_million": {"input": 0.425, "output": 2.55},
+    "configured_price_projection_usd": 3.068786,
+    "hard_provider_ceiling_usd_per_million": {"prompt": 0.5, "completion": 3.0},
+    "provider_ceiling_projection_usd": 3.610337,
+    "study_1_cap_usd": 7.8,
+    "absolute_project_spend_cap_usd": 9.5
+  },
+  "note": "No respondent-level plaintext is stored here. The request set is deterministically reconstructed from encrypted frozen CAMS bundles and must reproduce the hashes above before any paid pilot or full run. Provider-billed token counts will be measured in the engineering-only pilot."
+}
