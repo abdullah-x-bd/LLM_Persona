@@ -1,0 +1,16 @@
+{
+  "pilot_enabled": true,
+  "canary_respondents": 1,
+  "full_pilot_respondents": 20,
+  "canary_hard_spend_cap_usd": 0.01,
+  "full_pilot_hard_spend_cap_usd": 0.10,
+  "selection_seed_label": "RPF_ENGINEERING_PILOT_V1",
+  "require_exact_frozen_request_hash": true,
+  "require_live_metadata_preflight": true,
+  "require_all_schema_valid": true,
+  "max_attempts_per_request": 2,
+  "reasoning_exclude_from_response": true,
+  "inspect_substantive_outputs": false,
+  "compare_to_human_truth": false,
+  "store_raw_outputs_encrypted_only": true
+}
