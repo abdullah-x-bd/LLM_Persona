@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "mobile_use_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "computer_use_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "internet_use_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "copy_paste_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "attach_message_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false},
+    "presentation_3m": {"type":"object","properties":{"answer":{"type":"string","enum":["yes","no"]},"probability_yes":{"type":"number","minimum":0.0,"maximum":1.0}},"required":["answer","probability_yes"],"additionalProperties":false}
+  },
+  "required":["mobile_use_3m","computer_use_3m","internet_use_3m","copy_paste_3m","attach_message_3m","presentation_3m"],
+  "additionalProperties":false
+}
