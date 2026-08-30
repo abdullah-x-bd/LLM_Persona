@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install parser dependencies
-        run: pip install numpy pandas
+        run: pip install numpy pandas cryptography
       - name: Compile isolated project
         run: python -m compileall -q reasoning_population_fidelity/src reasoning_population_fidelity/tests reasoning_population_fidelity/analysis
       - name: Run unit and CAMS parser tests
@@ -36,6 +36,10 @@ jobs:
           python src/pipeline.py preflight --requests /tmp/rpf_dry/expanded.jsonl --report /tmp/rpf_dry/preflight.json
           python analysis/smoke_analysis.py --responses /tmp/rpf_dry/mock.jsonl --out /tmp/rpf_dry/smoke.json
           python src/pipeline.py assert-live-locked
+      - name: Validate encrypted frozen CAMS sample compatibility
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python reasoning_population_fidelity/src/encrypted_cams_preflight.py
       - name: Zero-cost OpenRouter model and price check
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
