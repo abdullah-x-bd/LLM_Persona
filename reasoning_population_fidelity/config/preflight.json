@@ -16,9 +16,9 @@
     "max_sample_n": 2500,
     "minimum_sample_n": 1000,
     "reasoning_conditions": {
-      "none": {"effort": "none", "max_completion_tokens": 200},
-      "low": {"effort": "low", "max_completion_tokens": 300},
-      "high": {"effort": "high", "max_completion_tokens": 400}
+      "off": {"enabled": false, "max_completion_tokens": 250},
+      "low": {"effort": "low", "max_completion_tokens": 600},
+      "xhigh": {"effort": "xhigh", "max_completion_tokens": 1200}
     },
     "generation_settings": {
       "temperature": 0.0,
