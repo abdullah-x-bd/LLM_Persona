@@ -18,7 +18,7 @@
     "reasoning_conditions": {
       "off": {"enabled": false, "max_completion_tokens": 250},
       "low": {"effort": "low", "max_completion_tokens": 600},
-      "xhigh": {"effort": "xhigh", "max_completion_tokens": 1200}
+      "xhigh": {"effort": "xhigh", "max_completion_tokens": 1600}
     },
     "generation_settings": {
       "temperature": 0.0,
@@ -48,7 +48,7 @@
     "allow_provider_fallbacks": true,
     "provider_data_collection": "deny",
     "provider_sort": "price",
-    "provider_max_price_usd_per_million": {"prompt": 0.50, "completion": 3.00},
+    "provider_max_price_usd_per_million": {"prompt": 0.45, "completion": 2.60},
     "require_parameters": true,
     "max_retries": 3,
     "concurrency": 8
