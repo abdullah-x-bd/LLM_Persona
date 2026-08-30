@@ -9,7 +9,7 @@
     "input_usd_per_million": 0.425,
     "output_usd_per_million": 2.55,
     "price_checked_utc": "2026-08-30",
-    "pricing_note": "OpenRouter live routed-model metadata; Study 1 provider pinned separately in run_policy",
+    "pricing_note": "OpenRouter live routed-model metadata; Study 1 provider endpoint pinned separately in run_policy",
     "max_price_multiplier_before_block": 1.15
   },
   "study_1": {
@@ -46,7 +46,7 @@
     "cache_requests": true,
     "preserve_raw_outputs": true,
     "allow_provider_fallbacks": false,
-    "provider_order": ["alibaba"],
+    "provider_order": ["akashml/fp8"],
     "provider_data_collection": "deny",
     "provider_sort": "price",
     "provider_max_price_usd_per_million": {"prompt": 0.45, "completion": 2.60},
