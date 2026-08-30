@@ -1,0 +1,148 @@
+name: CAMS GPT-5.6 Luna production run
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cams-production-luna-v1
+  cancel-in-progress: false
+
+jobs:
+  infer:
+    if: contains(github.event.head_commit.message, '[production-run]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99]
+
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      CHUNK: ${{ matrix.chunk }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install decryption dependencies
+        run: pip install cryptography pynacl
+
+      - name: Reassemble and decrypt frozen request bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            data/encrypted/cams_requests_v2.part01.b64 \
+            data/encrypted/cams_requests_v2.part02.b64 \
+            data/encrypted/cams_requests_v2.part03.b64 \
+            data/encrypted/cams_requests_v2.part04.b64 \
+            data/encrypted/cams_requests_v2.part05.b64 \
+            > /tmp/cams_requests_v2.b64
+          python - <<'PY'
+          import base64, gzip, hashlib, os
+          from pathlib import Path
+          from nacl.public import PrivateKey
+          from cryptography.hazmat.primitives.asymmetric import x25519
+          from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+          blob=base64.b64decode(Path('/tmp/cams_requests_v2.b64').read_text())
+          assert len(blob) > 44
+          eph_pub, nonce, ciphertext = blob[:32], blob[32:44], blob[44:]
+          secret=os.environ['OPENROUTER_API_KEY']
+          seed=hashlib.sha256(('LLM_Persona_bundle_v2|'+secret).encode()).digest()
+          raw_private=bytes(PrivateKey(seed))
+          recipient=x25519.X25519PrivateKey.from_private_bytes(raw_private)
+          ephemeral=x25519.X25519PublicKey.from_public_bytes(eph_pub)
+          shared=recipient.exchange(ephemeral)
+          key=HKDF(algorithm=hashes.SHA256(),length=32,salt=None,info=b'LLM_Persona_bundle_v2').derive(shared)
+          compressed=AESGCM(key).decrypt(nonce,ciphertext,b'LLM_Persona_CAMS_requests_v2')
+          plaintext=gzip.decompress(compressed)
+          Path('/tmp/requests_all.jsonl').write_bytes(plaintext)
+          PY
+
+      - name: Validate bundle and extract 20-request shard
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          rows=[json.loads(x) for x in Path('/tmp/requests_all.jsonl').read_text(encoding='utf-8').splitlines() if x.strip()]
+          assert len(rows)==2000, len(rows)
+          pairs=[(r['anon_id'],r['condition']) for r in rows]
+          assert len(set(pairs))==2000
+          assert sum(r['condition']=='rich' for r in rows)==1000
+          assert sum(r['condition']=='thin' for r in rows)==1000
+          for r in rows:
+              assert set(r) == {'anon_id','condition','persona','prompt'}
+          c=int(os.environ['CHUNK']); lo=c*20; hi=lo+20
+          shard=rows[lo:hi]
+          assert len(shard)==20
+          with open('/tmp/requests_chunk.jsonl','w',encoding='utf-8') as f:
+              for r in shard: f.write(json.dumps(r,ensure_ascii=False)+'\n')
+          keys=['mobile_ability','mobile_3m','computer_ability','internet_ability','internet_3m','copy_paste']
+          props={k:{'type':'object','properties':{'answer':{'type':'string','enum':['yes','no']},'probability_yes':{'type':'number','minimum':0.0,'maximum':1.0}},'required':['answer','probability_yes'],'additionalProperties':False} for k in keys}
+          schema={'type':'object','properties':props,'required':keys,'additionalProperties':False}
+          Path('/tmp/schema.json').write_text(json.dumps(schema),encoding='utf-8')
+          print(f'Validated 2000 frozen requests; shard {c} covers rows {lo}:{hi}')
+          PY
+
+      - name: Run 20 isolated production calls with immediate local fsync checkpoints
+        id: inference
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/results
+          python src/run_openrouter.py \
+            --requests /tmp/requests_chunk.jsonl \
+            --schema /tmp/schema.json \
+            --out /tmp/results/results.jsonl \
+            --checkpoint /tmp/results/checkpoint.json \
+            --errors /tmp/results/errors.jsonl \
+            --model openai/gpt-5.6-luna \
+            --provider openai \
+            --concurrency 4 \
+            --max-retries 3
+
+      - name: Validate shard checkpoint
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/results/results.jsonl')
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+          ok={(r['anon_id'],r['condition']) for r in rows if 'error' not in r}
+          summary={'chunk':${{ matrix.chunk }},'successful':len(ok),'expected':20}
+          Path('/tmp/results/shard_summary.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          PY
+
+      - name: Upload durable shard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-production-chunk-${{ matrix.chunk }}
+          path: /tmp/results/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail shard if incomplete after artifact upload
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('/tmp/results/shard_summary.json').read_text())
+          if s['successful'] != 20:
+              raise SystemExit(f"Shard incomplete: {s['successful']}/20 successful. Artifact preserved for resume.")
+          print('Shard complete: 20/20 successful')
+          PY
