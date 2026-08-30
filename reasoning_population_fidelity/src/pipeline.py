@@ -36,14 +36,14 @@ def make_fixture(out_path):
 def expand(base_path,out_path,config_path=DEFAULT_CONFIG,schema_path=DEFAULT_SCHEMA):
     cfg=load_config(config_path); base=load_jsonl(base_path)
     schema_hash=sha256_text(Path(schema_path).read_text(encoding="utf-8"))
-    model=cfg["primary_model"]["id"]; conditions=cfg["study_1"]["reasoning_conditions"]; rows=[]
+    model=cfg["primary_model"]["id"]; conditions=cfg["study_1"]["reasoning_conditions"]; generation=cfg["study_1"]["generation_settings"]; rows=[]
     for b in base:
         validate_persona(b["persona"])
         if b["prompt"] != build_prompt(b["persona"]):
             raise AssertionError(f"Prompt/persona mismatch for {b['anon_id']}")
         for condition,settings in conditions.items():
             if condition not in ALLOWED_REASONING: raise AssertionError(f"Unknown reasoning condition: {condition}")
-            row={"anon_id":b["anon_id"],"reasoning":condition,"reasoning_settings":settings,"persona":b["persona"],"prompt":b["prompt"],"prompt_sha256":sha256_text(b["prompt"]),"schema_sha256":schema_hash,"model":model}
+            row={"anon_id":b["anon_id"],"reasoning":condition,"reasoning_settings":settings,"generation_settings":generation,"persona":b["persona"],"prompt":b["prompt"],"prompt_sha256":sha256_text(b["prompt"]),"schema_sha256":schema_hash,"model":model}
             row["request_id"]=request_id(row); rows.append(row)
     rows.sort(key=lambda r:(r["anon_id"],r["reasoning"])); write_jsonl(out_path,rows)
     return {"expanded_requests":len(rows),"respondents":len(base),"path":str(out_path)}
@@ -54,7 +54,7 @@ def estimate_full_cost(rows,cfg):
     return {"request_count":len(rows),"conservative_input_tokens":total_in,"hard_capped_completion_tokens":total_out,"worst_case_cost_usd":round(total_in/1e6*pm["input_usd_per_million"]+total_out/1e6*pm["output_usd_per_million"],6)}
 
 def validate_expanded(rows,cfg):
-    errors=[]; seen=set(); by_person=defaultdict(list); schema_expected=sha256_text(DEFAULT_SCHEMA.read_text(encoding="utf-8"))
+    errors=[]; seen=set(); by_person=defaultdict(list); schema_expected=sha256_text(DEFAULT_SCHEMA.read_text(encoding="utf-8")); generation_expected=cfg["study_1"]["generation_settings"]
     for r in rows:
         pair=(r.get("anon_id"),r.get("reasoning"))
         if pair in seen: errors.append(f"duplicate pair {pair}")
@@ -62,6 +62,8 @@ def validate_expanded(rows,cfg):
         try: validate_persona(r["persona"])
         except Exception as e: errors.append(f"{r.get('anon_id')} persona: {e}")
         if r.get("reasoning") not in ALLOWED_REASONING: errors.append(f"bad reasoning {pair}")
+        if r.get("reasoning_settings") != cfg["study_1"]["reasoning_conditions"].get(r.get("reasoning")): errors.append(f"reasoning settings mismatch {pair}")
+        if r.get("generation_settings") != generation_expected: errors.append(f"generation settings mismatch {pair}")
         if r.get("prompt_sha256") != sha256_text(r.get("prompt","")): errors.append(f"prompt hash mismatch {pair}")
         if r.get("schema_sha256") != schema_expected: errors.append(f"schema hash mismatch {pair}")
         if r.get("request_id") != request_id(r): errors.append(f"request id mismatch {pair}")
@@ -70,6 +72,7 @@ def validate_expanded(rows,cfg):
     for anon,grp in by_person.items():
         if {g["reasoning"] for g in grp} != expected: errors.append(f"{anon}: incomplete condition set")
         if len({g["prompt_sha256"] for g in grp})!=1 or len({g["prompt"] for g in grp})!=1: errors.append(f"{anon}: prompt changed across reasoning conditions")
+        if len({json.dumps(g["generation_settings"],sort_keys=True) for g in grp})!=1: errors.append(f"{anon}: generation settings changed across reasoning conditions")
     return errors
 
 def mock_run(requests_path,out_path):
