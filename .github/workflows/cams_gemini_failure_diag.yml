@@ -1,4 +1,4 @@
-# diagnose current post-repair CAMS Gemini single failure
+# inspect current CAMS Gemini wrong-key response shape
 name: CAMS Gemini single-failure diagnostic
 
 on:
@@ -46,22 +46,36 @@ jobs:
       - name: Reconstruct exact frozen chunk zero
         run: |
           python src/production_runtime.py requests --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 --out-requests /tmp/prod/requests.jsonl --out-schema /tmp/prod/schema.json --chunk 0 --chunk-size 25
-      - name: Make one corrected resilient diagnostic attempt
-        continue-on-error: true
-        run: |
-          python src/run_openrouter_gemini_resilient.py --requests /tmp/prod/requests.jsonl --schema /tmp/prod/schema.json --out /tmp/prod/results.jsonl --checkpoint /tmp/prod/checkpoint.json --errors /tmp/prod/errors.jsonl --model google/gemini-3.7-flash --provider google-vertex --concurrency 1 --max-retries 0
-      - name: Print exact remaining exception only
-        if: always()
+      - name: Inspect only structural shape of one fresh response
         run: |
           python - <<'PY'
-          import json
+          import hashlib, json, os, sys
           from pathlib import Path
-          p=Path('/tmp/prod/errors.jsonl')
-          if not p.exists() or not p.stat().st_size:
-              print('GEMINI_POST_REPAIR_ERROR=NONE')
-              print('RESULT_BECAME_COMPLETE=TRUE')
-          else:
-              x=json.loads(p.read_text().splitlines()[-1])
-              print('GEMINI_POST_REPAIR_ERROR=' + str(x.get('error')))
-              print('ATTEMPTS=' + str(x.get('attempts')))
+          from json_repair import loads as repair_loads
+          sys.path.insert(0,'src')
+          import run_openrouter_v2 as base
+          rows=base.load_jsonl('/tmp/prod/requests.jsonl')
+          done=base.successful_pairs(Path('/tmp/prod/results.jsonl'))
+          todo=[r for r in rows if (r['anon_id'],r['condition']) not in done]
+          assert len(todo)==1, len(todo)
+          schema=json.loads(Path('/tmp/prod/schema.json').read_text())
+          expected=base.outcome_keys_from_schema(schema)
+          body={'model':'google/gemini-3.7-flash','messages':[{'role':'user','content':todo[0]['prompt']}],
+                'response_format':base.response_format(schema),'max_tokens':450,
+                'provider':{'require_parameters':True,'data_collection':'deny','only':['google-vertex'],'allow_fallbacks':False}}
+          resp=base.post_json(body,os.environ['OPENROUTER_API_KEY'],timeout=35)
+          content=resp['choices'][0]['message']['content']
+          raw_hash=hashlib.sha256(content.encode()).hexdigest()
+          repaired=False
+          try: obj=json.loads(content)
+          except json.JSONDecodeError:
+              obj=repair_loads(content); repaired=True
+          print('EXPECTED_TOP_KEYS=' + json.dumps(sorted(expected)))
+          print('ACTUAL_TYPE=' + type(obj).__name__)
+          print('ACTUAL_TOP_KEYS=' + json.dumps(sorted(obj.keys()) if isinstance(obj,dict) else []))
+          if isinstance(obj,dict):
+              print('ACTUAL_VALUE_TYPES=' + json.dumps({k:type(v).__name__ for k,v in obj.items()},sort_keys=True))
+              print('NESTED_KEYS=' + json.dumps({k:sorted(v.keys()) if isinstance(v,dict) else [] for k,v in obj.items()},sort_keys=True))
+          print('JSON_SYNTAX_REPAIRED=' + str(repaired))
+          print('RAW_CONTENT_SHA256=' + raw_hash)
           PY
