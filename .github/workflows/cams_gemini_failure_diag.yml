@@ -1,5 +1,4 @@
-# inspect current CAMS Gemini wrong-key response shape
-name: CAMS Gemini single-failure diagnostic
+name: CAMS Gemini diagnostic retired
 
 on:
   push:
@@ -10,72 +9,9 @@ on:
 
 permissions:
   contents: read
-  actions: read
-
-env:
-  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-  GH_TOKEN: ${{ github.token }}
-  SOURCE_RUN_ID: '33290298082'
 
 jobs:
-  diagnose:
+  retired:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install cryptography numpy pandas json-repair
-      - name: Restore current 24-of-25 chunk zero checkpoint
-        run: |
-          mkdir -p /tmp/previous /tmp/prod
-          AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" --jq '.artifacts[] | select(.name=="cams-final-gemini-0") | .id' | head -n1)
-          test -n "$AID"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > /tmp/checkpoint.zip
-          unzip -q /tmp/checkpoint.zip -d /tmp/previous
-          python - <<'PY'
-          from pathlib import Path
-          import sys
-          sys.path.insert(0,'src')
-          from production_runtime import decrypt_result_file
-          files=list(Path('/tmp/previous').rglob('*.results.enc.b64'))
-          assert len(files)==1, files
-          Path('/tmp/prod/results.jsonl').write_bytes(decrypt_result_file(files[0],0))
-          PY
-      - name: Reconstruct exact frozen chunk zero
-        run: |
-          python src/production_runtime.py requests --bundle data/encrypted/cams_codes_v2.x25519.aesgcm.gz.b64 --out-requests /tmp/prod/requests.jsonl --out-schema /tmp/prod/schema.json --chunk 0 --chunk-size 25
-      - name: Inspect only structural shape of one fresh response
-        run: |
-          python - <<'PY'
-          import hashlib, json, os, sys
-          from pathlib import Path
-          from json_repair import loads as repair_loads
-          sys.path.insert(0,'src')
-          import run_openrouter_v2 as base
-          rows=base.load_jsonl('/tmp/prod/requests.jsonl')
-          done=base.successful_pairs(Path('/tmp/prod/results.jsonl'))
-          todo=[r for r in rows if (r['anon_id'],r['condition']) not in done]
-          assert len(todo)==1, len(todo)
-          schema=json.loads(Path('/tmp/prod/schema.json').read_text())
-          expected=base.outcome_keys_from_schema(schema)
-          body={'model':'google/gemini-3.7-flash','messages':[{'role':'user','content':todo[0]['prompt']}],
-                'response_format':base.response_format(schema),'max_tokens':450,
-                'provider':{'require_parameters':True,'data_collection':'deny','only':['google-vertex'],'allow_fallbacks':False}}
-          resp=base.post_json(body,os.environ['OPENROUTER_API_KEY'],timeout=35)
-          content=resp['choices'][0]['message']['content']
-          raw_hash=hashlib.sha256(content.encode()).hexdigest()
-          repaired=False
-          try: obj=json.loads(content)
-          except json.JSONDecodeError:
-              obj=repair_loads(content); repaired=True
-          print('EXPECTED_TOP_KEYS=' + json.dumps(sorted(expected)))
-          print('ACTUAL_TYPE=' + type(obj).__name__)
-          print('ACTUAL_TOP_KEYS=' + json.dumps(sorted(obj.keys()) if isinstance(obj,dict) else []))
-          if isinstance(obj,dict):
-              print('ACTUAL_VALUE_TYPES=' + json.dumps({k:type(v).__name__ for k,v in obj.items()},sort_keys=True))
-              print('NESTED_KEYS=' + json.dumps({k:sorted(v.keys()) if isinstance(v,dict) else [] for k,v in obj.items()},sort_keys=True))
-          print('JSON_SYNTAX_REPAIRED=' + str(repaired))
-          print('RAW_CONTENT_SHA256=' + raw_hash)
-          PY
+      - run: echo "Gemini diagnostics are retired because Gemini is no longer part of the study."
