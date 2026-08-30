@@ -1,9 +1,10 @@
 authorized_by_user: true
-purpose: zero-retention AkashML FP8 paid canary then complete 20 respondent 60 request engineering pilot
+purpose: zero-retention AkashML FP8 paid canary then production-like concurrent 20 respondent 60 request engineering pilot
 freeze_version: 3
 format_revision: compact-v1-off120-low1100-medium1430-akashmlfp8-retry3
 conditions: off,low,medium
 completion_caps: off=120,low=1100,medium=1430
 provider: akashml/fp8
+concurrency: 8
 max_attempts_per_request: 3
-attempt: 8
+attempt: 9
