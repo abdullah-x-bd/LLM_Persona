@@ -20,6 +20,11 @@
       "low": {"effort": "low", "max_completion_tokens": 300},
       "high": {"effort": "high", "max_completion_tokens": 400}
     },
+    "generation_settings": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "structured_output": "json_schema_strict"
+    },
     "pilot_n_per_condition": 20,
     "study_budget_cap_usd": 7.8
   },
