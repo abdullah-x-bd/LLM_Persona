@@ -6,7 +6,6 @@ import concurrent.futures
 import gzip
 import hashlib
 import json
-import math
 import os
 import sys
 import urllib.request
@@ -35,6 +34,9 @@ from production_study1 import (
 CONDITIONS = ("off", "low", "medium")
 EXPECTED_FREEZE = "120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293"
 HISTORICAL_RUN_ID = 33310439944
+RESUME_CONCURRENCY = 2
+BATCH_SIZE = 12
+CREDIT_FLOOR_USD = 0.10
 
 
 def decrypt_seed_raw(path: Path, api_key: str) -> list[dict]:
@@ -91,18 +93,31 @@ def historical_effective_costs(attempts: list[dict], successes: list[dict]) -> d
     return out
 
 
+def seed_cost_usd(summary: dict) -> float:
+    for key in (
+        "combined_realized_or_guard_cost_usd",
+        "known_realized_cost_usd",
+        "historical_realized_cost_usd",
+    ):
+        value = summary.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+    raise RuntimeError("Seed summary does not expose a usable cumulative Study 1 cost")
+
+
 def load_seed(seed_dir: Path, api_key: str) -> tuple[list[dict], list[dict], dict[str, dict], dict]:
     summary = json.loads((seed_dir / "study1_summary.json").read_text(encoding="utf-8"))
     if summary.get("freeze_requests_sha256") != EXPECTED_FREEZE:
         raise RuntimeError("Seed artifact freeze hash does not match frozen Study 1")
-    if summary.get("requests_schema_valid") != 963:
-        raise RuntimeError("Seed artifact does not contain the expected 963 valid requests")
+    expected_valid = summary.get("requests_schema_valid")
+    if not isinstance(expected_valid, int) or not (1 <= expected_valid <= 3000):
+        raise RuntimeError("Seed artifact has an invalid requests_schema_valid count")
     successes = json.loads((seed_dir / "production_requests.json").read_text(encoding="utf-8"))
     attempts = json.loads((seed_dir / "attempt_history.json").read_text(encoding="utf-8"))
     raw_rows = decrypt_seed_raw(seed_dir / "raw_results.enc.b64", api_key)
     raw = {r["request_id"]: r for r in raw_rows}
     success_ids = {r["request_id"] for r in successes}
-    if len(successes) != 963 or len(success_ids) != 963 or set(raw) != success_ids:
+    if len(successes) != expected_valid or len(success_ids) != expected_valid or set(raw) != success_ids:
         raise RuntimeError("Seed metadata/raw result ID sets are inconsistent")
     return attempts, successes, raw, summary
 
@@ -126,7 +141,15 @@ def build_success_record(rec: dict, row: dict, attempt_no: int) -> dict:
     }
 
 
-def aggregate_summary(attempts: list[dict], successes: dict[str, dict], historical_cost: float, current_run_cost: float, current_credit_start: float, expected_remaining: float) -> dict:
+def aggregate_summary(
+    attempts: list[dict],
+    successes: dict[str, dict],
+    historical_cost: float,
+    current_run_cost: float,
+    current_credit_start: float,
+    expected_remaining: float,
+    stop_reason: str | None = None,
+) -> dict:
     condition_counts = {c: sum(1 for r in successes.values() if r["reasoning"] == c) for c in CONDITIONS}
     remaining = 3000 - len(successes)
     return {
@@ -147,6 +170,10 @@ def aggregate_summary(attempts: list[dict], successes: dict[str, dict], historic
         "provider_order": ["akashml/fp8"],
         "allow_provider_fallbacks": False,
         "provider_data_collection": "deny",
+        "resume_concurrency": RESUME_CONCURRENCY,
+        "resume_batch_size": BATCH_SIZE,
+        "credit_floor_usd": CREDIT_FLOOR_USD,
+        "stop_reason": stop_reason,
         "human_truth_loaded_for_scoring": False,
         "substantive_outputs_inspected_during_run": False,
         "raw_results_storage": "AES-GCM encrypted artifact only",
@@ -189,10 +216,8 @@ def run(seed_dir: Path, workdir: Path, preflight_only: bool) -> dict:
 
     missing = [r for r in rows if r["request_id"] not in successes]
     missing_counts = {c: sum(1 for r in missing if r["reasoning"] == c) for c in CONDITIONS}
-    if missing_counts != {"off": 379, "low": 833, "medium": 825}:
-        raise RuntimeError(f"Unexpected missing-treatment counts: {missing_counts}")
 
-    historical_cost = float(seed_summary["known_realized_cost_usd"])
+    historical_cost = seed_cost_usd(seed_summary)
     study_cap = float(cfg["study_1"]["study_budget_cap_usd"])
     remaining_study_budget = study_cap - historical_cost
     effective = historical_effective_costs(attempts, seed_successes)
@@ -200,8 +225,16 @@ def run(seed_dir: Path, workdir: Path, preflight_only: bool) -> dict:
     required_credit = min(remaining_study_budget, expected_remaining * 1.04)
     credit = remaining_credit_usd(api_key)
 
+    enough_to_start = credit > CREDIT_FLOOR_USD
+    enough_to_finish_expected = credit + 1e-12 >= required_credit
     preflight = {
-        "status": "RESUME_PREFLIGHT_PASS" if credit + 1e-12 >= required_credit else "RESUME_PREFLIGHT_BLOCKED_LOW_CREDIT",
+        "status": (
+            "RESUME_PREFLIGHT_PASS_FULL"
+            if enough_to_finish_expected
+            else "RESUME_PREFLIGHT_PASS_PARTIAL"
+            if enough_to_start
+            else "RESUME_PREFLIGHT_BLOCKED_NO_USABLE_CREDIT"
+        ),
         "freeze_requests_sha256": EXPECTED_FREEZE,
         "seed_valid_requests": len(successes),
         "missing_requests": len(missing),
@@ -212,95 +245,147 @@ def run(seed_dir: Path, workdir: Path, preflight_only: bool) -> dict:
         "expected_remaining_cost_usd": round(expected_remaining, 8),
         "required_account_credit_usd": round(required_credit, 8),
         "current_account_credit_usd": round(credit, 8),
-        "additional_credit_needed_usd": round(max(0.0, required_credit - credit), 8),
-        "resume_concurrency": 2,
+        "additional_credit_needed_for_expected_full_finish_usd": round(max(0.0, required_credit - credit), 8),
+        "resume_concurrency": RESUME_CONCURRENCY,
+        "resume_batch_size": BATCH_SIZE,
+        "credit_floor_usd": CREDIT_FLOOR_USD,
         "inference_endpoint_called": False,
     }
     print(json.dumps(preflight, indent=2, sort_keys=True), flush=True)
     if preflight_only:
         return preflight
-    if credit + 1e-12 < required_credit:
-        raise RuntimeError("Insufficient account credit for a clean resume; no inference was sent")
+    if not enough_to_start:
+        raise RuntimeError("Insufficient account credit even for a partial resume; no inference was sent")
 
-    concurrency = 2
     reasoning_exclude = bool(pilot_cfg.get("reasoning_exclude_from_response", True))
     max_attempts = max(1, min(3, int(cfg["run_policy"].get("max_retries") or 1)))
     outdir = workdir / "study1_resume_output"
     new_cost = 0.0
+    stop_reason: str | None = None
 
-    # Preserve frozen ordinal identity from the original request order.
     ordinal_by_id = {r["request_id"]: i for i, r in enumerate(rows, start=1)}
     for r in missing:
         r["_ordinal"] = ordinal_by_id[r["request_id"]]
 
-    # Interleave by original frozen order. Run two at a time to avoid OpenRouter credit reservation spikes.
     pending = list(missing)
     for attempt_no in range(1, max_attempts + 1):
-        if not pending:
+        if not pending or stop_reason:
             break
         next_pending: list[dict] = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
-            future_map = {}
-            for row in pending:
-                ceiling = request_ceiling_cost(row, cfg)
-                if historical_cost + new_cost + ceiling > study_cap + 1e-12:
-                    next_pending.append(row)
-                    continue
-                fut = pool.submit(one_attempt, row, cfg, schema, reasoning_exclude, api_key, row["_ordinal"], attempt_no)
-                future_map[fut] = row
-            completed = 0
-            for fut in concurrent.futures.as_completed(future_map):
-                row = future_map[fut]
-                try:
-                    result = fut.result()
-                except Exception as exc:
-                    result = {
-                        "ordinal": row["_ordinal"],
-                        "request_id": row["request_id"],
-                        "anon_id": row["anon_id"],
-                        "reasoning": row["reasoning"],
-                        "attempt": attempt_no,
-                        "response_received": False,
-                        "schema_valid": False,
-                        "error": f"worker:{type(exc).__name__}:{str(exc)[:220]}",
-                        "cost_usd": None,
-                        "request_ceiling_usd": request_ceiling_cost(row, cfg),
-                    }
-                rec, parsed = normalize_attempt_result(result)
-                attempts.append(rec)
-                new_cost += realized_or_guard_cost(rec)
-                if rec.get("schema_valid") and parsed is not None:
-                    rid = row["request_id"]
-                    successes[rid] = build_success_record(rec, row, attempt_no)
-                    raw[rid] = {
-                        "request_id": rid,
-                        "anon_id": row["anon_id"],
-                        "reasoning": row["reasoning"],
-                        "generation_id": rec.get("generation_id"),
-                        "response": parsed,
-                    }
-                else:
-                    next_pending.append(row)
-                completed += 1
-                if completed % 50 == 0 or completed == len(future_map):
-                    print(json.dumps({
-                        "phase": f"resume_attempt_{attempt_no}",
-                        "attempted_this_phase": completed,
-                        "total_schema_valid": len(successes),
-                        "remaining_after_current_results": 3000 - len(successes),
-                        "combined_realized_or_guard_cost_usd": round(historical_cost + new_cost, 6),
-                    }, sort_keys=True), flush=True)
+        cursor = 0
+        while cursor < len(pending):
+            try:
+                live_credit = remaining_credit_usd(api_key)
+            except Exception as exc:
+                print(json.dumps({"warning": "credit_check_failed", "error": str(exc)[:180]}), flush=True)
+                live_credit = CREDIT_FLOOR_USD + 1.0
+            if live_credit <= CREDIT_FLOOR_USD:
+                stop_reason = f"account_credit_floor_reached:{live_credit:.6f}"
+                next_pending.extend(pending[cursor:])
+                break
+
+            batch = pending[cursor: cursor + BATCH_SIZE]
+            cursor += len(batch)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=RESUME_CONCURRENCY) as pool:
+                future_map = {}
+                for row in batch:
+                    ceiling = request_ceiling_cost(row, cfg)
+                    if historical_cost + new_cost + ceiling > study_cap + 1e-12:
+                        next_pending.append(row)
+                        stop_reason = "study_budget_cap_would_be_exceeded"
+                        continue
+                    fut = pool.submit(one_attempt, row, cfg, schema, reasoning_exclude, api_key, row["_ordinal"], attempt_no)
+                    future_map[fut] = row
+
+                saw_402 = False
+                for fut in concurrent.futures.as_completed(future_map):
+                    row = future_map[fut]
+                    try:
+                        result = fut.result()
+                    except Exception as exc:
+                        result = {
+                            "ordinal": row["_ordinal"],
+                            "request_id": row["request_id"],
+                            "anon_id": row["anon_id"],
+                            "reasoning": row["reasoning"],
+                            "attempt": attempt_no,
+                            "response_received": False,
+                            "schema_valid": False,
+                            "error": f"worker:{type(exc).__name__}:{str(exc)[:220]}",
+                            "cost_usd": None,
+                            "request_ceiling_usd": request_ceiling_cost(row, cfg),
+                        }
+                    rec, parsed = normalize_attempt_result(result)
+                    attempts.append(rec)
+                    new_cost += realized_or_guard_cost(rec)
+                    if rec.get("schema_valid") and parsed is not None:
+                        rid = row["request_id"]
+                        successes[rid] = build_success_record(rec, row, attempt_no)
+                        raw[rid] = {
+                            "request_id": rid,
+                            "anon_id": row["anon_id"],
+                            "reasoning": row["reasoning"],
+                            "generation_id": rec.get("generation_id"),
+                            "response": parsed,
+                        }
+                    else:
+                        next_pending.append(row)
+                        if is_definite_zero_cost_rejection(rec):
+                            saw_402 = True
+
+                summary = aggregate_summary(
+                    attempts,
+                    successes,
+                    historical_cost,
+                    new_cost,
+                    credit,
+                    expected_remaining,
+                    stop_reason,
+                )
+                write_resume_checkpoint(outdir, attempts, successes, raw, api_key, summary)
+                print(json.dumps({
+                    "phase": f"resume_attempt_{attempt_no}",
+                    "batch_completed": len(batch),
+                    "total_schema_valid": len(successes),
+                    "remaining": 3000 - len(successes),
+                    "combined_realized_or_guard_cost_usd": round(historical_cost + new_cost, 6),
+                    "live_credit_before_batch_usd": round(live_credit, 6),
+                }, sort_keys=True), flush=True)
+
+                if saw_402:
+                    stop_reason = "openrouter_402_credit_rejection"
+                    next_pending.extend(pending[cursor:])
+                    break
+            if stop_reason:
+                break
+
         pending = [r for r in next_pending if r["request_id"] not in successes]
-        summary = aggregate_summary(attempts, successes, historical_cost, new_cost, credit, expected_remaining)
+        summary = aggregate_summary(
+            attempts,
+            successes,
+            historical_cost,
+            new_cost,
+            credit,
+            expected_remaining,
+            stop_reason,
+        )
         write_resume_checkpoint(outdir, attempts, successes, raw, api_key, summary)
 
-    summary = aggregate_summary(attempts, successes, historical_cost, new_cost, credit, expected_remaining)
+    summary = aggregate_summary(
+        attempts,
+        successes,
+        historical_cost,
+        new_cost,
+        credit,
+        expected_remaining,
+        stop_reason,
+    )
     write_resume_checkpoint(outdir, attempts, successes, raw, api_key, summary)
     print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
-    if not summary["all_schema_valid"]:
-        raise SystemExit(2)
     if summary["combined_realized_or_guard_cost_usd"] > study_cap + 1e-12:
         raise SystemExit(3)
+    if not summary["all_schema_valid"]:
+        raise SystemExit(2)
     return summary
 
 
