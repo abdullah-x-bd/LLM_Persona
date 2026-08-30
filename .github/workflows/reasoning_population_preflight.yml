@@ -1,0 +1,42 @@
+name: Reasoning population zero-cost preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reasoning_population_fidelity/**'
+      - '.github/workflows/reasoning_population_preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install parser dependencies
+        run: pip install numpy pandas
+      - name: Compile isolated project
+        run: python -m compileall -q reasoning_population_fidelity/src reasoning_population_fidelity/tests reasoning_population_fidelity/analysis
+      - name: Run unit and CAMS parser tests
+        run: python reasoning_population_fidelity/tests/test_pipeline.py
+      - name: Run deterministic end-to-end dry harness
+        run: |
+          cd reasoning_population_fidelity
+          rm -rf /tmp/rpf_dry && mkdir -p /tmp/rpf_dry
+          python src/pipeline.py fixture --out /tmp/rpf_dry/base.jsonl
+          python src/pipeline.py expand --base /tmp/rpf_dry/base.jsonl --out /tmp/rpf_dry/expanded.jsonl
+          python src/pipeline.py mock --requests /tmp/rpf_dry/expanded.jsonl --out /tmp/rpf_dry/mock.jsonl
+          python src/pipeline.py preflight --requests /tmp/rpf_dry/expanded.jsonl --report /tmp/rpf_dry/preflight.json
+          python analysis/smoke_analysis.py --responses /tmp/rpf_dry/mock.jsonl --out /tmp/rpf_dry/smoke.json
+          python src/pipeline.py assert-live-locked
+      - name: Zero-cost OpenRouter model and price check
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python reasoning_population_fidelity/src/online_preflight.py
