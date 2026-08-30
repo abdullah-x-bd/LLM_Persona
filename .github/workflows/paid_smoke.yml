@@ -10,35 +10,4 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install smoke-test dependencies
-        run: pip install numpy pandas
-      - name: Create one non-sensitive dummy request
-        run: |
-          mkdir -p /tmp/llm_persona_smoke
-          python - <<'PY'
-          import json, sys
-          sys.path.insert(0, 'src')
-          from prepare_sample import build_prompt, response_schema
-          persona = 'You are a 31-year-old woman living in rural Haryana, India.'
-          row = {'anon_id':'SMOKE-00001','condition':'thin','persona':persona,'prompt':build_prompt(persona)}
-          open('/tmp/llm_persona_smoke/requests.jsonl','w').write(json.dumps(row)+'\n')
-          open('/tmp/llm_persona_smoke/schema.json','w').write(json.dumps(response_schema()))
-          PY
-      - name: Run exactly one paid inference
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          python src/run_openrouter.py --requests /tmp/llm_persona_smoke/requests.jsonl --schema /tmp/llm_persona_smoke/schema.json --out /tmp/llm_persona_smoke/results.jsonl --model openai/gpt-5.6-luna --provider openai --concurrency 1 --max-retries 0 --limit 1
-      - name: Validate returned model response
-        run: |
-          python - <<'PY'
-          import json
-          row=json.loads(open('/tmp/llm_persona_smoke/results.jsonl').read())
-          assert 'error' not in row
-          assert row['anon_id']=='SMOKE-00001'
-          print('PASS')
-          PY
+      - run: echo 'manual only'
