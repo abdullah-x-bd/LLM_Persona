@@ -1,0 +1,48 @@
+name: Reasoning population credit balance check
+
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/CREDIT_CHECK_V1'
+
+permissions:
+  contents: read
+
+jobs:
+  credit-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check OpenRouter credit balance without inference
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          key = os.environ['OPENROUTER_API_KEY']
+          def get(path):
+              req = urllib.request.Request('https://openrouter.ai/api/v1' + path, headers={'Authorization': 'Bearer ' + key})
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      return r.status, json.loads(r.read().decode())
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode(errors='replace')
+                  return e.code, {'error_body': body[:500]}
+          c_status, c = get('/credits')
+          k_status, k = get('/key')
+          out = {'credits_status': c_status, 'key_status': k_status}
+          data = c.get('data') if isinstance(c, dict) else None
+          if isinstance(data, dict):
+              total_credits = data.get('total_credits')
+              total_usage = data.get('total_usage')
+              out['total_credits_usd'] = total_credits
+              out['total_usage_usd'] = total_usage
+              if isinstance(total_credits, (int,float)) and isinstance(total_usage, (int,float)):
+                  out['remaining_account_credit_usd'] = round(total_credits-total_usage, 8)
+          kd = k.get('data') if isinstance(k, dict) else None
+          if isinstance(kd, dict):
+              for field in ('limit','limit_remaining','usage','usage_daily','is_free_tier','expires_at'):
+                  out['key_'+field] = kd.get(field)
+          print(json.dumps(out, indent=2, sort_keys=True))
+          if c_status != 200 and k_status != 200:
+              raise SystemExit('Could not read OpenRouter credit/key metadata')
+          PY
