@@ -6,10 +6,10 @@ HERE=Path(__file__).resolve().parents[1]
 CONFIG=HERE/"config"/"preflight.json"
 BASE="https://openrouter.ai/api/v1"
 REQUIRED_PARAMS={"reasoning","response_format","temperature","top_p","max_tokens"}
-REQUIRED_ENABLED_EFFORTS={"low","xhigh"}
+REQUIRED_ENABLED_EFFORTS={"low","medium"}
 
 def get_json(url,key):
-    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-RPF-ZeroCost-Preflight/1.4"})
+    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-RPF-ZeroCost-Preflight/1.5"})
     with urllib.request.urlopen(req,timeout=30) as r: return json.loads(r.read().decode("utf-8"))
 
 def as_per_million(value):
@@ -35,10 +35,10 @@ def main():
     if mandatory:
         print("FAIL: model metadata says reasoning is mandatory, so thinking-off treatment is invalid",file=sys.stderr); return 1
     if supported_efforts is not None and not REQUIRED_ENABLED_EFFORTS.issubset(set(supported_efforts)):
-        print(f"FAIL: model-specific efforts do not contain low/xhigh: {supported_efforts}",file=sys.stderr); return 1
+        print(f"FAIL: model-specific efforts do not contain low/medium: {supported_efforts}",file=sys.stderr); return 1
     arms=cfg["study_1"]["reasoning_conditions"]
-    if set(arms)!={"off","low","xhigh"} or arms["off"].get("enabled") is not False or arms["low"].get("effort")!="low" or arms["xhigh"].get("effort")!="xhigh":
-        print("FAIL: frozen config does not encode off/low/xhigh as expected",file=sys.stderr); return 1
+    if set(arms)!={"off","low","medium"} or arms["off"].get("enabled") is not False or arms["low"].get("effort")!="low" or arms["medium"].get("effort")!="medium":
+        print("FAIL: frozen config does not encode off/low/medium as expected",file=sys.stderr); return 1
     pricing=m.get("pricing") or {}; live_in=as_per_million(pricing.get("prompt")); live_out=as_per_million(pricing.get("completion")); configured=cfg["primary_model"]; mult=float(configured["max_price_multiplier_before_block"])
     if live_in is None or live_out is None:
         print("FAIL: model pricing unavailable",file=sys.stderr); return 1
@@ -55,6 +55,6 @@ def main():
     if not eligible:
         print("FAIL: no endpoint satisfies all frozen parameters plus hard price ceiling",file=sys.stderr); return 1
     frozen=cfg["study_1"]["generation_settings"]
-    print(json.dumps({"status":"PASS","model":model_id,"required_parameters":sorted(REQUIRED_PARAMS),"model_reasoning_metadata":{"supported_efforts":supported_efforts,"default_effort":reasoning_meta.get("default_effort"),"default_enabled":reasoning_meta.get("default_enabled"),"supports_max_tokens":reasoning_meta.get("supports_max_tokens"),"mandatory":mandatory},"treatment_arms":{"off":{"enabled":False},"low":{"effort":"low"},"xhigh":{"effort":"xhigh"}},"generation_settings":frozen,"live_routed_input_usd_per_million":live_in,"live_routed_output_usd_per_million":live_out,"hard_provider_price_ceiling":ceiling,"eligible_endpoint_count":len(eligible),"eligible_endpoints":eligible[:8],"inference_endpoint_called":False},indent=2))
+    print(json.dumps({"status":"PASS","model":model_id,"required_parameters":sorted(REQUIRED_PARAMS),"model_reasoning_metadata":{"supported_efforts":supported_efforts,"default_effort":reasoning_meta.get("default_effort"),"default_enabled":reasoning_meta.get("default_enabled"),"supports_max_tokens":reasoning_meta.get("supports_max_tokens"),"mandatory":mandatory},"treatment_arms":{"off":{"enabled":False},"low":{"effort":"low"},"medium":{"effort":"medium"}},"generation_settings":frozen,"live_routed_input_usd_per_million":live_in,"live_routed_output_usd_per_million":live_out,"hard_provider_price_ceiling":ceiling,"eligible_endpoint_count":len(eligible),"eligible_endpoints":eligible[:8],"inference_endpoint_called":False},indent=2))
     print("PASS: zero-cost online preflight complete; no inference endpoint called"); return 0
 if __name__=="__main__": raise SystemExit(main())
