@@ -1,2 +1,3 @@
-Purpose: inspect remaining OpenRouter account credit after failed Study 1 production run 33310439944.
+Purpose: re-check remaining OpenRouter account credit immediately before resuming failed Study 1 production run 33310439944.
 No inference endpoint is called by this trigger.
+Check iteration: 2.
