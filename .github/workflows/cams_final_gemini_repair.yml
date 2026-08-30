@@ -1,4 +1,4 @@
-# final single-run CAMS trigger 2026-08-30
+# short-timeout checkpoint-aware CAMS Gemini completion
 name: CAMS final Gemini checkpoint-aware repair
 
 on:
@@ -18,13 +18,15 @@ concurrency:
 
 env:
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
   SOURCE_RUN_ID: '33288265141'
+  LATEST_RUN_ID: '33289219299'
 
 jobs:
   repair:
     name: Final Gemini CAMS chunk ${{ matrix.chunk }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -36,17 +38,24 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install cryptography numpy pandas
-      - name: Download latest repaired checkpoint
-        uses: actions/download-artifact@v4
-        with:
-          name: cams-gemini-repaired-${{ matrix.chunk }}
-          path: /tmp/previous
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ env.SOURCE_RUN_ID }}
-      - name: Restore all paid successes
+      - name: Restore newest durable checkpoint for this chunk
         run: |
-          mkdir -p /tmp/prod /tmp/final
+          set -euo pipefail
+          mkdir -p /tmp/previous /tmp/prod /tmp/final
+          LATEST_NAME="cams-final-gemini-${{ matrix.chunk }}"
+          OLD_NAME="cams-gemini-repaired-${{ matrix.chunk }}"
+          ARTIFACT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LATEST_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${LATEST_NAME}\") | .id" | head -n1 || true)
+          if [ -n "${ARTIFACT_ID}" ]; then
+            echo "Using latest final checkpoint artifact ${LATEST_NAME} (${ARTIFACT_ID})"
+          else
+            ARTIFACT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${OLD_NAME}\") | .id" | head -n1 || true)
+            test -n "${ARTIFACT_ID}"
+            echo "Using prior repaired checkpoint artifact ${OLD_NAME} (${ARTIFACT_ID})"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/checkpoint.zip
+          unzip -q /tmp/checkpoint.zip -d /tmp/previous
+      - name: Decrypt all already-paid successes
+        run: |
           python - <<'PY'
           import json, sys
           from pathlib import Path
@@ -68,24 +77,24 @@ jobs:
             --out-requests /tmp/prod/requests.jsonl \
             --out-schema /tmp/prod/schema.json \
             --chunk ${{ matrix.chunk }} --chunk-size 25
-      - name: Retry only unresolved requests until complete
+      - name: Fast-cycle only unresolved Gemini requests
         id: inference
         continue-on-error: true
         run: |
           set +e
-          for PASS in 1 2 3 4 5 6 7 8 9 10; do
-            echo "CAMS Gemini completion pass $PASS"
-            python src/run_openrouter_v2.py \
+          for PASS in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            echo "CAMS Gemini fast completion pass $PASS"
+            python src/run_openrouter_gemini_fast.py \
               --requests /tmp/prod/requests.jsonl \
               --schema /tmp/prod/schema.json \
               --out /tmp/prod/results.jsonl \
               --checkpoint /tmp/prod/checkpoint.json \
               --errors /tmp/prod/errors.jsonl \
               --model google/gemini-3.7-flash \
-              --concurrency 2 --max-retries 5
+              --concurrency 6 --max-retries 0
             RC=$?
             if [ "$RC" -eq 0 ]; then exit 0; fi
-            sleep $((PASS * 3))
+            sleep $((PASS * 2))
           done
           exit 1
       - name: Persist final encrypted shard
