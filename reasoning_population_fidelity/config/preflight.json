@@ -1,0 +1,51 @@
+{
+  "project": "reasoning_population_fidelity",
+  "budget_usd": 10.3,
+  "paid_runs_enabled": false,
+  "hard_spend_cap_usd": 9.5,
+  "reserve_usd": 0.8,
+  "primary_model": {
+    "id": "qwen/qwen3.8-27b",
+    "input_usd_per_million": 0.35,
+    "output_usd_per_million": 2.75,
+    "price_checked_utc": "2026-08-30",
+    "max_price_multiplier_before_block": 1.15
+  },
+  "study_1": {
+    "max_sample_n": 2500,
+    "minimum_sample_n": 1000,
+    "reasoning_conditions": {
+      "none": {"effort": "none", "max_completion_tokens": 260},
+      "low": {"effort": "low", "max_completion_tokens": 360},
+      "high": {"effort": "high", "max_completion_tokens": 460}
+    },
+    "pilot_n_per_condition": 20,
+    "study_budget_cap_usd": 7.8
+  },
+  "study_2": {
+    "enabled_after_study_1": true,
+    "study_budget_cap_usd": 1.2,
+    "models": [
+      {"id": "qwen/qwen3.8-flash", "input_usd_per_million": 0.15, "output_usd_per_million": 0.47},
+      {"id": "deepseek/deepseek-v3.2", "input_usd_per_million": 0.2088, "output_usd_per_million": 0.3096}
+    ]
+  },
+  "run_policy": {
+    "require_fixture_tests": true,
+    "require_real_data_preflight": true,
+    "require_online_metadata_preflight": true,
+    "require_paid_pilot_before_full_run": true,
+    "require_zero_parse_errors_in_pilot": true,
+    "require_cost_projection_within_cap": true,
+    "cache_requests": true,
+    "preserve_raw_outputs": true,
+    "allow_provider_fallbacks": true,
+    "provider_data_collection": "deny",
+    "max_retries": 3,
+    "concurrency": 8
+  },
+  "outcomes": [
+    "mobile_ability", "mobile_3m", "computer_ability",
+    "internet_ability", "internet_3m", "copy_paste"
+  ]
+}
