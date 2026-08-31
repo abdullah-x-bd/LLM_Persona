@@ -1,0 +1,83 @@
+name: Reasoning population Study 1 full analysis
+
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/STUDY1_FULL_ANALYSIS_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install analysis dependencies
+        run: pip install numpy pandas cryptography
+
+      - name: Download final 3000-response Study 1 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/rpf_final /tmp/rpf_analysis
+          mkdir -p /tmp/rpf_final /tmp/rpf_analysis
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9750263228/zip \
+            -o /tmp/rpf_final.zip
+          unzip -q /tmp/rpf_final.zip -d /tmp/rpf_final
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/rpf_final/study1_summary.json'))
+          assert x['all_schema_valid'] is True, x
+          assert x['requests_schema_valid'] == 3000, x
+          assert x['remaining_failures'] == 0, x
+          assert x['condition_valid_counts'] == {'off':1000,'low':1000,'medium':1000}, x
+          assert x['freeze_requests_sha256'] == '120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293', x
+          print('FINAL_3000_ANALYSIS_SEED_OK')
+          PY
+
+      - name: Compile analysis code
+        run: python -m py_compile reasoning_population_fidelity/src/final_analysis_study1.py
+
+      - name: Run frozen full Study 1 analysis
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python reasoning_population_fidelity/src/final_analysis_study1.py \
+            --artifact-dir /tmp/rpf_final \
+            --outdir /tmp/rpf_analysis
+
+      - name: Verify aggregate-only analysis outputs
+        run: |
+          python - <<'PY'
+          import json, os
+          root='/tmp/rpf_analysis'
+          required=['final_analysis_summary.json','FINAL_RESULTS.md','condition_metrics.csv','paired_contrasts.csv','outcome_metrics.csv','diversity_distributional.csv','subgroup_mae.csv','subgroup_gap_reproduction.csv','demographic_overdetermination.csv','exploratory_arm_changes.csv','operational_metrics.csv']
+          for f in required:
+              assert os.path.exists(os.path.join(root,f)), f
+          x=json.load(open(os.path.join(root,'final_analysis_summary.json')))
+          assert x['integrity']['requests']==3000
+          assert x['integrity']['respondents']==1000
+          assert x['integrity']['all_schema_valid'] is True
+          assert x['bootstrap_reps']==10000
+          assert x['bootstrap_seed']==30082026
+          print('STUDY1_FULL_ANALYSIS_OUTPUT_GATE_PASS')
+          print(open(os.path.join(root,'FINAL_RESULTS.md')).read())
+          PY
+
+      - name: Upload aggregate full-analysis artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpf-study1-full-analysis-v1
+          path: /tmp/rpf_analysis/
+          retention-days: 90
