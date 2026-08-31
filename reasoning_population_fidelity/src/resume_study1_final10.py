@@ -39,6 +39,13 @@ def patched_load_json(path):
     return cfg
 
 
+def load_cycle_result(cycle_output: Path) -> dict:
+    p = cycle_output / "study1_summary.json"
+    if not p.exists():
+        raise RuntimeError(f"Recovery cycle did not write a durable summary: {p}")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed-dir", required=True, type=Path)
@@ -53,11 +60,10 @@ def main() -> None:
     if seed_summary.get("condition_valid_counts") != EXPECTED_SEED_COUNTS:
         raise RuntimeError(f"Unexpected seed condition counts: {seed_summary.get('condition_valid_counts')}")
 
-    # The scientific treatment stays frozen. We only repeat the existing frozen
-    # 3-attempt operational recovery cycle, preserving a checkpoint after every
-    # cycle. Token limits, prompts, schema, model, provider and reasoning arms do
-    # not change. All currently missing requests are sent concurrently because
-    # the diagnosed failure is completion-length exhaustion, not concurrency.
+    # Scientific treatment stays frozen. We only repeat the existing frozen
+    # three-attempt operational recovery cycle. SystemExit(2) from rs.run means
+    # "incomplete but checkpoint written", so it must be consumed as the seed
+    # for the next cycle rather than terminating this wrapper.
     rs.load_json = patched_load_json
     rs.RESUME_CONCURRENCY = 10
     rs.BATCH_SIZE = 10
@@ -84,45 +90,63 @@ def main() -> None:
         "resume_concurrency": rs.RESUME_CONCURRENCY,
         "resume_batch_size": rs.BATCH_SIZE,
         "interim_outcomes_seen_before_recovery": True,
+        "wrapper_bug_fixed_after_failed_run_33370754219": True,
         "purpose": "Collect only the final 10 missing request IDs from the existing frozen 3000-request Study 1 set.",
     }
     print(json.dumps(note, indent=2, sort_keys=True), flush=True)
 
     current_seed = args.seed_dir
-    last_output = None
-    result = None
+    last_output: Path | None = None
+    result: dict | None = None
     cycles_run = 0
+    final_out = args.workdir / "study1_resume_output"
 
     for cycle in range(1, MAX_RECOVERY_CYCLES + 1):
         cycle_workdir = args.workdir / f"cycle_{cycle}"
+        cycle_output = cycle_workdir / "study1_resume_output"
         print(json.dumps({"status": "FINAL10_CYCLE_START", "cycle": cycle, "seed_dir": str(current_seed)}, sort_keys=True), flush=True)
-        result = rs.run(current_seed, cycle_workdir, False)
+
+        exit_code = 0
+        try:
+            result = rs.run(current_seed, cycle_workdir, False)
+        except SystemExit as exc:
+            exit_code = int(exc.code or 0)
+            if exit_code not in (2, 3):
+                raise
+            result = load_cycle_result(cycle_output)
+
         cycles_run = cycle
-        last_output = cycle_workdir / "study1_resume_output"
+        last_output = cycle_output
+
+        # Keep a top-level durable copy after EVERY cycle, so the workflow upload
+        # still has the newest checkpoint even if a later cycle encounters an
+        # unexpected failure.
+        if final_out.exists():
+            shutil.rmtree(final_out)
+        shutil.copytree(last_output, final_out)
+        note["cycles_run"] = cycles_run
+        note["final_requests_schema_valid"] = int(result.get("requests_schema_valid", 0))
+        note["final_remaining_failures"] = int(result.get("remaining_failures", 3000))
+        note["last_cycle_exit_code"] = exit_code
+        (final_out / "final10_recovery_note.json").write_text(json.dumps(note, indent=2, sort_keys=True), encoding="utf-8")
+
         print(json.dumps({
             "status": "FINAL10_CYCLE_END",
             "cycle": cycle,
+            "cycle_exit_code": exit_code,
             "requests_schema_valid": result.get("requests_schema_valid"),
             "remaining_failures": result.get("remaining_failures"),
             "combined_realized_or_guard_cost_usd": result.get("combined_realized_or_guard_cost_usd"),
         }, sort_keys=True), flush=True)
+
         if result.get("all_schema_valid"):
             break
-        if result.get("stop_reason"):
+        if exit_code == 3 or result.get("stop_reason"):
             break
         current_seed = last_output
 
     if last_output is None or result is None:
         raise RuntimeError("No final recovery cycle executed")
-
-    final_out = args.workdir / "study1_resume_output"
-    if final_out.exists():
-        shutil.rmtree(final_out)
-    shutil.copytree(last_output, final_out)
-    note["cycles_run"] = cycles_run
-    note["final_requests_schema_valid"] = int(result.get("requests_schema_valid", 0))
-    note["final_remaining_failures"] = int(result.get("remaining_failures", 3000))
-    (final_out / "final10_recovery_note.json").write_text(json.dumps(note, indent=2, sort_keys=True), encoding="utf-8")
 
     if not result.get("all_schema_valid"):
         raise SystemExit(2)
