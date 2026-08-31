@@ -1,0 +1,121 @@
+name: Finalize S01 then run S03 fast
+
+on:
+  push:
+    paths:
+      - 'run/FINALIZE_S01_THEN_S03_FAST_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  finish_s01:
+    name: Finish final S01 request
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install cryptography numpy pandas
+      - name: Compile final-one path
+        run: python -m py_compile studies/common/finish_s01_final_one.py studies/common/resume_followup.py studies/common/paid_runner.py
+      - name: Download authoritative 1999 checkpoint
+        run: |
+          rm -rf /tmp/s01_1999 && mkdir -p /tmp/s01_1999
+          gh run download 33401818165 --repo "$GITHUB_REPOSITORY" --name followup-S01-recovered-33401818165 --dir /tmp/s01_1999
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_1999/s01_recovered/summary.json'))
+          assert x['schema_valid']==1999 and x['remaining_failures']==1,x
+          assert x['by_arm']=={'rich_high':999,'rich_off':1000},x
+          print('S01_1999_SEED_PASS',flush=True)
+          PY
+      - name: Finish exactly one missing S01 request
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s01_final
+          python studies/common/finish_s01_final_one.py --seed-dir /tmp/s01_1999/s01_recovered --outdir /tmp/s01_final --cap 0.03 --max-attempts 20
+      - name: Upload final S01 checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S01-final-${{ github.run_id }}
+          path: /tmp/s01_final
+          retention-days: 30
+          if-no-files-found: error
+      - name: Final S01 integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_final/summary.json'))
+          assert x['schema_valid']==2000 and x['remaining_failures']==0,x
+          assert x['by_arm']=={'rich_high':1000,'rich_off':1000},x
+          assert x['all_schema_valid'] is True and x['truth_loaded'] is False,x
+          print('S01_COMPLETE_2000_GATE_PASS',flush=True)
+          PY
+
+  s03_fast:
+    name: S03 fast transparent production
+    needs: finish_s01
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install cryptography numpy pandas
+      - name: Compile S03 fast runner
+        run: python -m py_compile studies/common/s03_fast_runner.py studies/common/openrouter_preflight.py studies/common/paid_runner.py
+      - name: Fresh zero-cost S03 preflight
+        run: python studies/common/openrouter_preflight.py S03_persona_reasoning_factorial --out /tmp/s03_live.json
+      - name: Assert endpoint and live ceiling
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_live.json'))
+          assert x['status']=='PASS_LIVE',x
+          assert x['models']['deepseek_v4_flash']['endpoint']['tag']=='open-inference/fp8',x
+          assert x['models']['deepseek_v4_flash']['endpoint_healthy'] is True,x
+          assert float(x['hard_single_pass_live_ceiling_usd']) <= 0.85,x
+          print('S03_ZERO_COST_GATE_PASS',flush=True)
+          PY
+      - name: Run S03 fast with live progress
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s03_fast
+          python studies/common/s03_fast_runner.py --outdir /tmp/s03_fast --cap 0.85 --concurrency 16
+      - name: Upload S03 encrypted checkpoint and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S03-fast-${{ github.run_id }}
+          path: |
+            /tmp/s03_fast/raw_results.enc.b64
+            /tmp/s03_fast/attempts.json
+            /tmp/s03_fast/summary.json
+            /tmp/s03_live.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: S03 final integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_fast/summary.json'))
+          assert x['planned_requests']==2000 and x['schema_valid']==2000,x
+          assert x['remaining_failures']==0 and x['all_schema_valid'] is True,x
+          assert x['by_arm']=={'thin_high':1000,'thin_off':1000},x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8',x
+          assert x['truth_loaded'] is False and x['data_collection']=='deny',x
+          print('S03_FAST_PRODUCTION_GATE_PASS',flush=True)
+          PY
