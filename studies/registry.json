@@ -1,0 +1,111 @@
+{
+  "suite_version": 1,
+  "created_utc": "2026-08-31",
+  "privacy": {
+    "provider_name": "AkashML",
+    "allow_fallbacks": false,
+    "data_collection": "deny",
+    "raw_results_encrypted": true,
+    "truth_loaded_during_generation": false
+  },
+  "models": {
+    "qwen": {
+      "id": "qwen/qwen3.8-27b",
+      "planning_input_usd_per_million": 0.35,
+      "planning_output_usd_per_million": 2.75
+    },
+    "gpt_oss_120b": {
+      "id": "openai/gpt-oss-120b",
+      "planning_input_usd_per_million": 0.03,
+      "planning_output_usd_per_million": 0.17
+    }
+  },
+  "studies": {
+    "S01_second_model_reasoning": {
+      "title": "Second-model reasoning replication",
+      "status": "ready_for_zero_cost_preflight",
+      "source": "cams_existing_1000",
+      "respondents": 1000,
+      "selection_seed": 3108202601,
+      "requires_truth": "data/encrypted/cams_truth_v2.x25519.aesgcm.gz.b64",
+      "arms": [
+        {"id": "rich_off", "persona": "rich", "model": "gpt_oss_120b", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "rich_medium", "persona": "rich", "model": "gpt_oss_120b", "reasoning": "medium", "max_completion_tokens": 1800}
+      ],
+      "study_spend_cap_usd": 0.55,
+      "primary_contrast": "rich_medium - rich_off",
+      "purpose": "Test whether the individual-Brier versus population-fidelity divergence replicates in a different model family."
+    },
+    "S02_length_safe_reasoning": {
+      "title": "Length-safe Qwen reasoning replication",
+      "status": "ready_for_zero_cost_preflight",
+      "source": "cams_existing_1000",
+      "respondents": 1000,
+      "selection_seed": 3108202602,
+      "requires_truth": "data/encrypted/cams_truth_v2.x25519.aesgcm.gz.b64",
+      "arms": [
+        {"id": "rich_off", "persona": "rich", "model": "qwen", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "rich_medium", "persona": "rich", "model": "qwen", "reasoning": "medium", "max_completion_tokens": 3200}
+      ],
+      "study_spend_cap_usd": 11.25,
+      "primary_contrast": "rich_medium - rich_off",
+      "purpose": "Repeat the core reasoning contrast with enough completion headroom to make truncation a negligible design feature rather than a treatment confound."
+    },
+    "S03_persona_reasoning_factorial": {
+      "title": "Persona richness by reasoning factorial",
+      "status": "ready_for_zero_cost_preflight",
+      "source": "cams_existing_1000",
+      "respondents": 1000,
+      "selection_seed": 3108202603,
+      "requires_truth": "data/encrypted/cams_truth_v2.x25519.aesgcm.gz.b64",
+      "reuse": {
+        "study": "S01_second_model_reasoning",
+        "arms": ["rich_off", "rich_medium"]
+      },
+      "arms": [
+        {"id": "thin_off", "persona": "thin", "model": "gpt_oss_120b", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "thin_medium", "persona": "thin", "model": "gpt_oss_120b", "reasoning": "medium", "max_completion_tokens": 1800}
+      ],
+      "study_spend_cap_usd": 0.55,
+      "primary_contrast": "persona_x_reasoning_interaction",
+      "purpose": "Estimate whether reasoning is most harmful or helpful when factual persona information is sparse. Rich arms are reused from S01 rather than paid for twice."
+    },
+    "S04_plfs_reasoning_replication": {
+      "title": "Cross-domain PLFS reasoning replication",
+      "status": "blocked_until_truth_bundle_is_restored",
+      "source": "plfs_existing_1500",
+      "respondents": 1000,
+      "selection_seed": 3108202604,
+      "requires_truth": "data/encrypted/plfs_2023_24_truth.enc.b64",
+      "arms": [
+        {"id": "rich_off", "persona": "rich", "model": "gpt_oss_120b", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "rich_medium", "persona": "rich", "model": "gpt_oss_120b", "reasoning": "medium", "max_completion_tokens": 1800}
+      ],
+      "study_spend_cap_usd": 0.55,
+      "primary_contrast": "rich_medium - rich_off",
+      "purpose": "Test the reasoning result outside digital inclusion using labour-force outcomes. No paid launch is permitted until matched PLFS truth is restored."
+    },
+    "S05_fresh_holdout_confirmation": {
+      "title": "Fresh preregistered holdout confirmation",
+      "status": "blocked_until_new_holdout_is_frozen",
+      "source": "cams_fresh_holdout_v1",
+      "respondents": 500,
+      "selection_seed": 3108202605,
+      "requires_codes": "data/encrypted/cams_holdout_codes_v1.x25519.aesgcm.gz.b64",
+      "requires_truth": "data/encrypted/cams_holdout_truth_v1.x25519.aesgcm.gz.b64",
+      "arms": [
+        {"id": "qwen_thin_off", "persona": "thin", "model": "qwen", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "qwen_rich_off", "persona": "rich", "model": "qwen", "reasoning": "off", "max_completion_tokens": 256},
+        {"id": "qwen_rich_medium", "persona": "rich", "model": "qwen", "reasoning": "medium", "max_completion_tokens": 3200},
+        {"id": "gpt_oss_rich_off", "persona": "rich", "model": "gpt_oss_120b", "reasoning": "off", "max_completion_tokens": 256}
+      ],
+      "study_spend_cap_usd": 5.75,
+      "primary_contrasts": [
+        "qwen_rich_off - qwen_thin_off",
+        "qwen_rich_medium - qwen_rich_off",
+        "gpt_oss_rich_off - qwen_rich_off"
+      ],
+      "purpose": "Prospectively test the discovered persona, reasoning, joint-distribution, and model-prior claims on respondents not used to formulate them."
+    }
+  }
+}
