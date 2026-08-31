@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import json
 import os
-import sys
-from pathlib import Path
+import urllib.request
 
-HERE=Path(__file__).resolve().parent
-if str(HERE) not in sys.path: sys.path.insert(0,str(HERE))
-from openrouter_preflight import BASE, get_json, per_m
-
+BASE="https://openrouter.ai/api/v1"
 REQUIRED={"reasoning","response_format","max_tokens"}
 PROVIDER="akashml"
 MAX_GENERIC_OUTPUT_PER_M=5.0
 MAX_CANDIDATES_TO_PROBE=60
+
+
+def get_json(url: str, key: str) -> dict:
+    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-SecondModel-Scanner/1.1"})
+    with urllib.request.urlopen(req,timeout=30) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def per_m(v):
+    return None if v is None else float(v)*1_000_000
 
 
 def main():
@@ -41,7 +47,7 @@ def main():
         author,slug=c["model"].split("/",1)
         try:
             eps=(get_json(f"{BASE}/models/{author}/{slug}/endpoints",key).get("data",{}) or {}).get("endpoints") or []
-        except Exception as exc:
+        except Exception:
             continue
         for ep in eps:
             name=str(ep.get("name") or ep.get("provider_name") or ""); tag=str(ep.get("tag") or "")
