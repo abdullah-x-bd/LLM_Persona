@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install zero-cost dependencies
-        run: pip install cryptography
+        run: pip install cryptography numpy pandas
       - name: Compile suite code
         run: |
           python -m py_compile studies/common/suite_core.py
