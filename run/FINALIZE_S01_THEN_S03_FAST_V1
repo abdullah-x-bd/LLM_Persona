@@ -1,0 +1,1 @@
+Trigger final S01 one-request recovery from artifact 9763100674, then launch S03 fast transparent production only after S01 reaches 2000/2000. S03 uses OpenInference FP8, concurrency 16, live progress every 25 completions, encrypted checkpoint every 50, parallel retry waves, no human truth during generation, no fallbacks, and data_collection=deny.
