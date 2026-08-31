@@ -1,66 +1,98 @@
-# LLM Persona Survey Validation for Indian Policy Research
+# LLM Population Simulation Fidelity
 
-This repository contains the analysis for an Applied Policy Fellowship brief testing whether persona-conditioned large language models can reconstruct held-out outcomes from Government of India National Sample Survey microdata closely enough to justify prospective testing as a rapid preliminary policy-evidence tool.
+**Working umbrella result:** *Better synthetic individuals do not necessarily make better synthetic populations.*
 
-## Working research question
+This repository is a multi-study audit of large-language-model population simulation against real Government of India survey respondents. The project began with a matched-persona CAMS experiment and now tests three distinct design levers: how much respondent information the model receives, which model generates the synthetic respondent, and how much inference-time reasoning the model performs.
 
-**How accurately can persona-conditioned LLMs reconstruct held-out survey outcomes from actual NSO respondents, and is the resulting accuracy sufficient to justify prospective testing as a rapid preliminary policy-evidence tool for Indian policymaking?**
+The central methodological question is no longer whether one LLM can predict one survey well. It is whether respondent-level plausibility, probability calibration, aggregate prevalence, subgroup fidelity, and the joint structure of a synthetic population move together. The accumulated evidence says they often do not.
 
-## Core design
+## Research program
 
-1. Use NSO Comprehensive Annual Modular Survey (CAMS) 2022-23 unit-level microdata.
-2. Construct matched personas from respondent characteristics that precede the target digital-use outcomes.
-3. Withhold selected survey outcomes from the LLM.
-4. Ask the LLM the corresponding NSO questions for each matched persona.
-5. Compare synthetic predictions with the respondent's actual held-out answers and with weighted NSO population estimates.
-6. Compare thin and rich persona specifications.
-7. Benchmark individual-level prediction against simple statistical baselines.
-8. Evaluate aggregate accuracy, subgroup fidelity, individual correspondence, and robustness.
-9. Optionally pair the computational study with a small exploratory human survey on acceptability of synthetic estimation for preliminary policy research.
+### 1. CAMS persona-information experiments
 
-## Planned primary outcomes
+Source: MoSPI/NSSO Comprehensive Annual Modular Survey 2022–23.
 
-- Computer/laptop/tablet use capability
-- Internet use capability
-- Internet use in the previous three months
-- Email capability
-- Digital banking/payment capability
-- Copy-and-paste capability
+Matched real respondents are represented with either thin or rich non-target persona information. Digital-use outcomes are withheld from the model and evaluated only after model responses are frozen. Luna is the large production model in the original branch; Claude provides a matched robustness sample.
 
-The exact variable mapping will be frozen after inspection of the downloaded CAMS files and codebook.
+### 2. Multi-model and multi-survey robustness
 
-## Planned hypotheses
+The repository also contains completed model-output infrastructure for CMS Telecom 2025 and PLFS 2023–24. These branches are valuable for cross-model population-prior and distributional comparisons. The current repository does **not** contain separate CMS/PLFS truth bundles, so they must not be described as truth-linked fidelity validations until those matched truth assets are restored.
 
-- **H1 Population fidelity:** LLM-persona estimates will reproduce a majority of selected NSO population estimates within a pre-specified policy-relevant error margin.
-- **H2 Subgroup fidelity:** LLM-persona estimates will reproduce the direction and approximate magnitude of major demographic disparities in the NSO data.
-- **H3 Persona enrichment:** Rich socioeconomic personas will yield lower estimation error than thin demographic personas.
-- **H4 Individual fidelity:** Matched LLM predictions will outperform a naive majority-class baseline, while individual correspondence may remain weaker than population-level correspondence.
+### 3. Reasoning population fidelity
 
-## Repository layout
+`reasoning_population_fidelity/` contains the paired Qwen3.8-27B reasoning experiment on 1,000 CAMS respondents under reasoning off, low, and medium. Generation was separated from human truth, requests were frozen before production, and the final analysis reports individual, aggregate, calibration, subgroup, and joint-distribution metrics.
+
+### 4. Confirmatory follow-up suite
+
+`studies/` contains five post-synthesis experiments designed to challenge the emerging result rather than merely add more exploratory metrics:
+
+- **S01** second-model reasoning replication with DeepSeek V4 Flash 0731;
+- **S02** length-safe Qwen reasoning replication with much larger completion headroom;
+- **S03** 2 × 2 persona-richness × reasoning factorial, reusing S01 rich cells rather than paying for them twice;
+- **S04** PLFS cross-domain reasoning replication, blocked until matched PLFS truth is restored;
+- **S05** untouched CAMS holdout confirmation, blocked until a genuinely disjoint holdout is frozen.
+
+No follow-up paid inference runs merely because code is pushed. The suite has a zero-cost metadata/request/cost gate and a separate manual paid workflow that requires a literal confirmation string and an explicit spend cap.
+
+## Canonical repository layout
 
 ```text
 LLM_Persona/
 ├── README.md
-├── .gitignore
-├── requirements.txt
 ├── docs/
-│   └── research_design.md
-├── data/
-│   └── README.md
+│   ├── REPO_MAP.md
+│   ├── REPO_WIDE_RESULTS_SYNTHESIS.md
+│   ├── FOLLOWUP_EXPERIMENT_PLAN.md
+│   ├── research_design.md
+│   └── data_audit.md
+├── studies/
+│   ├── README.md
+│   ├── registry.json
+│   ├── common/
+│   └── S01...S05/
+├── reasoning_population_fidelity/
 ├── src/
-│   └── .gitkeep
-├── outputs/
-│   └── .gitkeep
-├── brief/
-│   └── .gitkeep
-└── presentation/
-    └── .gitkeep
+├── config/
+├── data/
+│   └── encrypted/
+├── .github/
+│   └── workflows/
+└── run/
 ```
 
-## Data handling
+See `docs/REPO_MAP.md` before adding new study code. Historical repair/recovery workflows are intentionally retained for reproducibility and provenance; their presence does not make them the canonical launch path.
 
-Raw NSO microdata, credentials, API keys, and respondent-level model outputs are excluded from version control. Only code, documentation, aggregate results, reproducible derived artifacts, and materials permitted for redistribution should be committed.
+## Evaluation hierarchy
 
-## Status
+The project treats synthetic-population fidelity as a vector of estimands rather than one score. Truth-linked studies report, where applicable:
 
-Project initialized on 29 August 2026. Experimental specification will be frozen before evaluation against held-out outcomes.
+- survey-weighted individual Brier score;
+- probability-prevalence MAE;
+- hard prevalence MAE;
+- hard-response accuracy;
+- log loss and calibration-in-the-large;
+- outcome-specific errors;
+- response-pattern entropy;
+- total-variation and Jensen–Shannon distance from the human joint distribution;
+- prespecified subgroup errors;
+- paired respondent bootstrap uncertainty.
+
+A setting is therefore not called “better” merely because one individual-level metric improves.
+
+## Data and leakage policy
+
+Target outcomes must never enter persona construction. Generation workflows do not load human truth. Respondent-level model outputs are encrypted before upload. API keys are never committed. Public Git history may contain encrypted reproducibility bundles, code, request hashes, safe run metadata, and aggregate results.
+
+CAMS currently has separate encrypted persona-code and truth bundles. CMS and PLFS currently have persona-code bundles but no separate truth bundle in the repository.
+
+## Provider and spending policy
+
+Production studies pin one provider endpoint rather than silently switching inference backends. Follow-up studies currently require AkashML, disable provider fallback, request provider data collection `deny`, and recompute live OpenRouter prices immediately before any paid launch.
+
+The authoritative cost is the live hard single-pass ceiling generated by the preflight workflow, not a price copied into documentation. Registered study caps are deliberately higher than the live ceiling to leave limited retry headroom while still enforcing a hard maximum.
+
+## Current status
+
+The original CAMS persona study, cross-model robustness work, and Qwen reasoning experiment have generated substantive results. The new confirmatory suite is coded and guarded. S01–S03 have passed zero-cost request/model/provider/price checks; S04 and S05 remain deliberately blocked on missing scientific assets rather than being allowed to consume inference budget prematurely.
+
+For the current empirical synthesis, read `docs/REPO_WIDE_RESULTS_SYNTHESIS.md`. For the five next experiments, read `docs/FOLLOWUP_EXPERIMENT_PLAN.md` and `studies/README.md`.
