@@ -1,0 +1,60 @@
+name: DeepSeek factorial deep diagnostics
+
+on:
+  push:
+    paths:
+      - 'studies/run_triggers/DEEPSEEK_FACTORIAL_DEEP_DIAGNOSTICS_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas
+      - name: Compile and zero-inference gate
+        run: |
+          python -m py_compile studies/analysis/deepseek_factorial_analysis.py studies/analysis/deepseek_factorial_deep_diagnostics.py
+          ! grep -R '/chat/completions' studies/analysis/deepseek_factorial_deep_diagnostics.py
+      - name: Download complete S01 and S03
+        run: |
+          rm -rf /tmp/s01 /tmp/s03 /tmp/in && mkdir -p /tmp/s01 /tmp/s03 /tmp/in/s01 /tmp/in/s03
+          gh run download 33406819430 --repo "$GITHUB_REPOSITORY" --name followup-S01-final-33406819430 --dir /tmp/s01
+          gh run download 33406819430 --repo "$GITHUB_REPOSITORY" --name followup-S03-fast-33406819430 --dir /tmp/s03
+          for f in raw_results.enc.b64 attempts.json summary.json; do
+            p=$(find /tmp/s01 -name "$f" -type f | head -1); cp "$p" /tmp/in/s01/$f
+            p=$(find /tmp/s03 -name "$f" -type f | head -1); cp "$p" /tmp/in/s03/$f
+          done
+      - name: Run deep diagnostics
+        run: |
+          rm -rf /tmp/diag
+          python studies/analysis/deepseek_factorial_deep_diagnostics.py --s01-dir /tmp/in/s01 --s03-dir /tmp/in/s03 --outdir /tmp/diag
+      - name: Integrity gate
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          x=json.load(open('/tmp/diag/summary.json'))
+          assert x['status']=='DEEPSEEK_FACTORIAL_DEEP_DIAGNOSTICS_COMPLETE'
+          assert x['age_bootstrap_reps']==10000 and x['all_four_first_pass_n']>=100
+          assert x['respondent_plaintext_emitted'] is False and x['paid_inference_performed'] is False
+          a=pd.read_csv('/tmp/diag/age_reasoning_bootstrap.csv')
+          assert len(a)==40 and a['reps'].eq(10000).all(),a
+          print('DEEPSEEK_DEEP_DIAGNOSTICS_FINAL_GATE_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-factorial-deep-diagnostics-${{ github.run_id }}
+          path: /tmp/diag
+          retention-days: 90
