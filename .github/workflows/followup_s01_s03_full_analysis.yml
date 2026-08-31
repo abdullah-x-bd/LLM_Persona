@@ -1,0 +1,89 @@
+name: Follow-up S01 S03 full factorial analysis
+
+on:
+  push:
+    paths:
+      - 'run/S01_S03_FULL_ANALYSIS_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  analyze:
+    name: Truth-linked DeepSeek factorial analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install analysis dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile and enforce zero-inference analysis
+        run: |
+          python -m py_compile studies/analysis/deepseek_factorial_analysis.py
+          ! grep -R '/chat/completions' studies/analysis/deepseek_factorial_analysis.py
+          echo ANALYSIS_ZERO_INFERENCE_SOURCE_GATE_PASS
+      - name: Download authoritative final S01 and S03 artifacts
+        run: |
+          rm -rf /tmp/s01_dl /tmp/s03_dl /tmp/inputs
+          mkdir -p /tmp/s01_dl /tmp/s03_dl /tmp/inputs/s01 /tmp/inputs/s03
+          gh run download 33406819430 --repo "$GITHUB_REPOSITORY" --name followup-S01-final-33406819430 --dir /tmp/s01_dl
+          gh run download 33406819430 --repo "$GITHUB_REPOSITORY" --name followup-S03-fast-33406819430 --dir /tmp/s03_dl
+          for f in raw_results.enc.b64 attempts.json summary.json; do
+            p=$(find /tmp/s01_dl -name "$f" -type f | head -1); test -n "$p"; cp "$p" "/tmp/inputs/s01/$f"
+            p=$(find /tmp/s03_dl -name "$f" -type f | head -1); test -n "$p"; cp "$p" "/tmp/inputs/s03/$f"
+          done
+      - name: Verify generation completeness before truth load
+        run: |
+          python - <<'PY'
+          import json
+          s1=json.load(open('/tmp/inputs/s01/summary.json'))
+          s3=json.load(open('/tmp/inputs/s03/summary.json'))
+          assert s1['schema_valid']==2000 and s1['remaining_failures']==0 and s1['all_schema_valid'] is True,s1
+          assert s1['by_arm']=={'rich_high':1000,'rich_off':1000},s1
+          assert s3['schema_valid']==2000 and s3['remaining_failures']==0 and s3['all_schema_valid'] is True,s3
+          assert s3['by_arm']=={'thin_high':1000,'thin_off':1000},s3
+          assert s1['truth_loaded'] is False and s3['truth_loaded'] is False
+          print('FOUR_CELL_4000_GENERATION_GATE_PASS')
+          PY
+      - name: Run full 10000-bootstrap factorial analysis
+        run: |
+          rm -rf /tmp/deepseek_factorial_analysis
+          python studies/analysis/deepseek_factorial_analysis.py \
+            --s01-dir /tmp/inputs/s01 \
+            --s03-dir /tmp/inputs/s03 \
+            --outdir /tmp/deepseek_factorial_analysis
+      - name: Final aggregate-output integrity gate
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          root='/tmp/deepseek_factorial_analysis'
+          x=json.load(open(root+'/summary.json'))
+          assert x['status']=='COMPLETE_DEEPSEEK_FACTORIAL_ANALYSIS',x
+          assert x['respondents']==1000 and x['cells']=={'thin_off':1000,'thin_high':1000,'rich_off':1000,'rich_high':1000},x
+          assert x['bootstrap_reps']==10000 and x['bootstrap_seed']==3108202603,x
+          assert x['respondent_level_plaintext_emitted'] is False
+          assert x['paid_inference_performed_in_analysis'] is False
+          b=pd.read_csv(root+'/bootstrap_factorial_contrasts.csv')
+          assert len(b)==30 and b['bootstrap_reps'].eq(10000).all(),b
+          assert set(b['contrast'])=={
+            'reasoning_effect_thin_high_minus_off','reasoning_effect_rich_high_minus_off',
+            'persona_effect_off_rich_minus_thin','persona_effect_high_rich_minus_thin',
+            'persona_x_reasoning_interaction'}
+          print('DEEPSEEK_FACTORIAL_FINAL_GATE_PASS')
+          PY
+      - name: Upload aggregate analysis package
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-S01-S03-factorial-analysis-${{ github.run_id }}
+          path: /tmp/deepseek_factorial_analysis
+          retention-days: 90
+          if-no-files-found: error
