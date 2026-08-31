@@ -1,0 +1,96 @@
+name: Follow-up study suite paid launch
+
+on:
+  workflow_dispatch:
+    inputs:
+      study_id:
+        description: Study to launch
+        required: true
+        type: choice
+        options:
+          - S01_second_model_reasoning
+          - S02_length_safe_reasoning
+          - S03_persona_reasoning_factorial
+          - S04_plfs_reasoning_replication
+          - S05_fresh_holdout_confirmation
+      spend_cap_usd:
+        description: Explicit hard spend cap in USD, no higher than the registered study cap
+        required: true
+        type: string
+      confirm:
+        description: Type I_ACCEPT_PAID_INFERENCE exactly
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  paid-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography
+      - name: Require literal paid confirmation
+        run: |
+          test '${{ inputs.confirm }}' = 'I_ACCEPT_PAID_INFERENCE'
+      - name: Compile production code
+        run: |
+          python -m py_compile studies/common/suite_core.py studies/common/openrouter_preflight.py studies/common/paid_runner.py
+      - name: Re-run zero-cost live preflight immediately before spending
+        run: |
+          python studies/common/openrouter_preflight.py '${{ inputs.study_id }}' --out /tmp/live_preflight.json
+      - name: Validate requested cap against registry and live single-pass ceiling
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          sid='${{ inputs.study_id }}'
+          cap=float('${{ inputs.spend_cap_usd }}')
+          reg=json.load(open('studies/registry.json'))
+          study=reg['studies'][sid]
+          live=json.load(open('/tmp/live_preflight.json'))
+          assert live['status']=='PASS_LIVE', live
+          assert cap <= float(study['study_spend_cap_usd']) + 1e-12, (cap,study['study_spend_cap_usd'])
+          assert cap >= float(live['hard_single_pass_live_ceiling_usd']) - 1e-12, (cap,live['hard_single_pass_live_ceiling_usd'])
+          print(json.dumps({'study_id':sid,'requested_cap_usd':cap,'registered_cap_usd':study['study_spend_cap_usd'],'hard_single_pass_live_ceiling_usd':live['hard_single_pass_live_ceiling_usd']}))
+          PY
+      - name: Execute frozen study without human truth
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/followup_output
+          python studies/common/paid_runner.py '${{ inputs.study_id }}' --spend-cap '${{ inputs.spend_cap_usd }}' --outdir /tmp/followup_output
+      - name: Final production integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('/tmp/followup_output/summary.json'))
+          assert m['all_schema_valid'] is True, m
+          assert m['remaining_failures']==0, m
+          assert m['allow_fallbacks'] is False, m
+          assert m['data_collection']=='deny', m
+          assert m['truth_loaded'] is False, m
+          assert float(m['accounted_upper_bound_usd']) <= float(m['spend_cap_usd']) + 1e-12, m
+          print('FOLLOWUP_STUDY_PRODUCTION_GATE_PASS')
+          print(json.dumps(m,indent=2,sort_keys=True))
+          PY
+      - name: Upload encrypted model outputs and safe run metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-${{ inputs.study_id }}-${{ github.run_id }}
+          path: |
+            /tmp/followup_output/raw_results.enc.b64
+            /tmp/followup_output/attempts.json
+            /tmp/followup_output/summary.json
+            /tmp/live_preflight.json
+          retention-days: 30
+          if-no-files-found: error
