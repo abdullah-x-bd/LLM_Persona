@@ -40,13 +40,13 @@ jobs:
             test -s "/tmp/${S}.requests.jsonl"
             rm "/tmp/${S}.requests.jsonl"
           done
-      - name: Live OpenRouter metadata, provider, price and balance checks without inference
+      - name: Live OpenRouter metadata, provider and price checks without inference
         run: |
           set -euo pipefail
           for S in S01_second_model_reasoning S02_length_safe_reasoning S03_persona_reasoning_factorial; do
             python studies/common/openrouter_preflight.py "$S" --out "/tmp/preflight/${S}.live.json"
           done
-      - name: Verify deliberate data blocks on PLFS and fresh holdout
+      - name: Verify deliberate launch blocks on PLFS and fresh holdout
         run: |
           set -euo pipefail
           python studies/common/suite_core.py readiness S04_plfs_reasoning_replication | tee /tmp/preflight/S04.readiness.json
@@ -54,11 +54,25 @@ jobs:
           python - <<'PY'
           import json, subprocess
           for s in ('S04_plfs_reasoning_replication','S05_fresh_holdout_confirmation'):
-              out=subprocess.check_output(['python','studies/common/suite_core.py','readiness',s],text=True)
-              x=json.loads(out)
+              x=json.loads(subprocess.check_output(['python','studies/common/suite_core.py','readiness',s],text=True))
               assert not x['data_ready'], (s,x)
               assert x['missing_assets'], (s,x)
-          print('PASS: S04/S05 remain blocked before paid inference because required truth/holdout assets are absent')
+          print('PASS: S04/S05 remain impossible to launch before required truth/holdout assets exist')
+          PY
+      - name: Project S04 and S05 costs without making them launchable
+        run: |
+          set -euo pipefail
+          python studies/common/suite_core.py projection S04_plfs_reasoning_replication | tee /tmp/preflight/S04.projection.json
+          python studies/common/suite_core.py projection S05_fresh_holdout_confirmation | tee /tmp/preflight/S05.projection.json
+          python studies/common/openrouter_preflight.py S04_plfs_reasoning_replication --allow-projection --out /tmp/preflight/S04.live_projection.json
+          python studies/common/openrouter_preflight.py S05_fresh_holdout_confirmation --allow-projection --out /tmp/preflight/S05.live_projection.json
+          python - <<'PY'
+          import json
+          for p in ('/tmp/preflight/S04.live_projection.json','/tmp/preflight/S05.live_projection.json'):
+              x=json.load(open(p))
+              assert x['projection_only'] is True and x['launch_ready'] is False, x
+              assert x['status']=='PASS_LIVE_PROJECTION', x
+          print('PASS: blocked-study costs projected with current providers; paid launch remains disabled')
           PY
       - name: Verify no chat-completions call exists in zero-cost preflight
         run: |
