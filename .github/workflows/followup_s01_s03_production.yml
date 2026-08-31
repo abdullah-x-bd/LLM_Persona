@@ -1,0 +1,138 @@
+name: Follow-up S01 then S03 production
+
+on:
+  push:
+    paths:
+      - 'run/FOLLOWUP_S01_S03_V1'
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  s01:
+    name: S01 second-model reasoning
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile exact production path
+        run: python -m py_compile studies/common/suite_core.py studies/common/openrouter_preflight.py studies/common/paid_runner.py
+      - name: Final zero-cost S01 preflight
+        run: python studies/common/openrouter_preflight.py S01_second_model_reasoning --out /tmp/s01_live.json
+      - name: Assert S01 provider and ceiling
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_live.json'))
+          assert x['status']=='PASS_LIVE', x
+          assert x['models']['deepseek_v4_flash']['endpoint']['tag']=='open-inference/fp8', x
+          assert x['models']['deepseek_v4_flash']['endpoint_healthy'] is True, x
+          assert float(x['hard_single_pass_live_ceiling_usd']) <= 0.90, x
+          assert x['allow_fallbacks'] is False and x['data_collection']=='deny', x
+          print('S01_ZERO_COST_GATE_PASS')
+          PY
+      - name: Run frozen S01 without human truth
+        id: infer
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s01_output
+          python studies/common/paid_runner.py S01_second_model_reasoning --spend-cap 0.90 --outdir /tmp/s01_output
+      - name: Upload S01 encrypted checkpoint and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S01-production-${{ github.run_id }}
+          path: |
+            /tmp/s01_output/raw_results.enc.b64
+            /tmp/s01_output/attempts.json
+            /tmp/s01_output/summary.json
+            /tmp/s01_live.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: S01 integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_output/summary.json'))
+          assert x['planned_requests']==2000 and x['schema_valid']==2000, x
+          assert x['remaining_failures']==0 and x['all_schema_valid'] is True, x
+          assert x['by_arm']=={'rich_off':1000,'rich_high':1000}, x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8', x
+          assert x['allow_fallbacks'] is False and x['data_collection']=='deny' and x['truth_loaded'] is False, x
+          assert float(x['accounted_upper_bound_usd']) <= 0.90, x
+          print('S01_PRODUCTION_GATE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
+
+  s03:
+    name: S03 thin persona factorial cells
+    needs: s01
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile exact production path
+        run: python -m py_compile studies/common/suite_core.py studies/common/openrouter_preflight.py studies/common/paid_runner.py
+      - name: Final zero-cost S03 preflight
+        run: python studies/common/openrouter_preflight.py S03_persona_reasoning_factorial --out /tmp/s03_live.json
+      - name: Assert S03 provider and ceiling
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_live.json'))
+          assert x['status']=='PASS_LIVE', x
+          assert x['models']['deepseek_v4_flash']['endpoint']['tag']=='open-inference/fp8', x
+          assert x['models']['deepseek_v4_flash']['endpoint_healthy'] is True, x
+          assert float(x['hard_single_pass_live_ceiling_usd']) <= 0.85, x
+          assert x['allow_fallbacks'] is False and x['data_collection']=='deny', x
+          print('S03_ZERO_COST_GATE_PASS')
+          PY
+      - name: Run frozen S03 new thin cells without human truth
+        id: infer
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s03_output
+          python studies/common/paid_runner.py S03_persona_reasoning_factorial --spend-cap 0.85 --outdir /tmp/s03_output
+      - name: Upload S03 encrypted checkpoint and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S03-production-${{ github.run_id }}
+          path: |
+            /tmp/s03_output/raw_results.enc.b64
+            /tmp/s03_output/attempts.json
+            /tmp/s03_output/summary.json
+            /tmp/s03_live.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: S03 integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_output/summary.json'))
+          assert x['planned_requests']==2000 and x['schema_valid']==2000, x
+          assert x['remaining_failures']==0 and x['all_schema_valid'] is True, x
+          assert x['by_arm']=={'thin_off':1000,'thin_high':1000}, x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8', x
+          assert x['allow_fallbacks'] is False and x['data_collection']=='deny' and x['truth_loaded'] is False, x
+          assert float(x['accounted_upper_bound_usd']) <= 0.85, x
+          print('S03_PRODUCTION_GATE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
