@@ -1,0 +1,99 @@
+name: Follow-up study suite engineering micro-pilot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studies/run_triggers/ENGINEERING_MICROPILOT_V1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  engineering-micropilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+
+      - name: Compile exact production and pilot paths
+        run: |
+          python -m py_compile studies/common/suite_core.py
+          python -m py_compile studies/common/openrouter_preflight.py
+          python -m py_compile studies/common/paid_runner.py
+          python -m py_compile studies/common/engineering_micropilot.py
+
+      - name: Re-run zero-cost live gates for scientifically ready studies
+        run: |
+          set -euo pipefail
+          for S in S01_second_model_reasoning S02_length_safe_reasoning S03_persona_reasoning_factorial; do
+            python studies/common/openrouter_preflight.py "$S" --out "/tmp/${S}.live.json"
+          done
+
+      - name: Assert S04 and S05 remain scientifically blocked
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          for s in ('S04_plfs_reasoning_replication','S05_fresh_holdout_confirmation'):
+              x=json.loads(subprocess.check_output(['python','studies/common/suite_core.py','readiness',s],text=True))
+              assert x['data_ready'] is False, x
+              assert x['missing_assets'], x
+          print('PASS: blocked studies remain blocked for production; pilot uses engineering proxies only')
+          PY
+
+      - name: Run 24-call all-arm engineering micro-pilot
+        env:
+          ENABLE_ENGINEERING_MICROPILOT: YES_ENGINEERING_ONLY
+        run: |
+          rm -rf /tmp/followup_micropilot
+          python studies/common/engineering_micropilot.py --hard-cap 0.15 --outdir /tmp/followup_micropilot
+
+      - name: Engineering integrity gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/followup_micropilot/summary.json')
+          assert p.exists(), 'summary missing'
+          x=json.load(open(p))
+          assert x['scientific_data'] is False, x
+          assert x['truth_loaded'] is False, x
+          assert x['substantive_outputs_inspected'] is False, x
+          assert x['requests_planned']==24, x
+          assert x['schema_valid']==24, x
+          assert x['unresolved']==0, x
+          assert x['provider']=='AkashML', x
+          assert x['allow_fallbacks'] is False, x
+          assert x['data_collection']=='deny', x
+          assert float(x['accounted_upper_bound_usd']) <= 0.15 + 1e-12, x
+          for sid,v in x['by_study'].items():
+              assert v['all_valid'] is True, (sid,v)
+          print('ENGINEERING_MICROPILOT_GATE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
+
+      - name: Upload safe metadata and encrypted engineering outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-engineering-micropilot-v1
+          path: |
+            /tmp/followup_micropilot/summary.json
+            /tmp/followup_micropilot/attempts.json
+            /tmp/followup_micropilot/raw_results.enc.b64
+            /tmp/S01_second_model_reasoning.live.json
+            /tmp/S02_length_safe_reasoning.live.json
+            /tmp/S03_persona_reasoning_factorial.live.json
+          retention-days: 30
+          if-no-files-found: warn
