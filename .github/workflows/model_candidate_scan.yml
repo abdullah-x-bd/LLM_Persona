@@ -1,0 +1,38 @@
+name: Follow-up second-model candidate scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studies/run_triggers/MODEL_CANDIDATE_SCAN_V1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run metadata-only candidate scan
+        run: |
+          mkdir -p /tmp/model_scan
+          python studies/common/model_candidate_scan.py | tee /tmp/model_scan/candidates.json
+      - name: Assert no inference endpoint is present in scanner
+        run: |
+          ! grep -R '/chat/completions' studies/common/model_candidate_scan.py
+          echo 'PASS: candidate scan is zero-cost metadata only'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: followup-second-model-candidate-scan
+          path: /tmp/model_scan/candidates.json
+          retention-days: 30
+          if-no-files-found: error
