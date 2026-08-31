@@ -1,0 +1,48 @@
+name: Reasoning population Study 1 deep diagnostics
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/STUDY1_DEEP_DIAGNOSTICS_V1'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install numpy pandas cryptography
+      - name: Download final Study 1 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/rpf_final /tmp/rpf_diag
+          mkdir -p /tmp/rpf_final /tmp/rpf_diag
+          curl -L --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9750263228/zip -o /tmp/rpf_final.zip
+          unzip -q /tmp/rpf_final.zip -d /tmp/rpf_final
+      - name: Run deep diagnostics
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python reasoning_population_fidelity/src/study1_deep_diagnostics.py --artifact-dir /tmp/rpf_final --outdir /tmp/rpf_diag
+      - name: Verify outputs
+        run: |
+          python - <<'PY'
+          import os,json
+          root='/tmp/rpf_diag'
+          req=['length_failure_demographics.csv','joint_structure_correlations.csv','joint_structure_summary.csv','response_vector_transitions.csv','reasoning_probability_shifts_by_outcome.csv','subgroup_brier_effects.csv','phone_first_conditional_diagnostic.csv','deep_diagnostics_summary.json']
+          for x in req:assert os.path.exists(os.path.join(root,x)),x
+          print('STUDY1_DEEP_DIAGNOSTICS_GATE_PASS')
+          print(json.dumps(json.load(open(os.path.join(root,'deep_diagnostics_summary.json'))),indent=2))
+          PY
+      - name: Upload aggregate diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpf-study1-deep-diagnostics-v1
+          path: /tmp/rpf_diag/
+          retention-days: 90
