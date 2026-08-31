@@ -1,0 +1,11 @@
+Study 1 full aggregate analysis
+Final generation run: 33371250037
+Final artifact id: 9750263228
+Final valid requests: 3000
+Condition counts: off=1000, low=1000, medium=1000
+Frozen request SHA256: 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+Frozen analysis plan: reasoning_population_fidelity/docs/ANALYSIS_PLAN_FROZEN.md
+Bootstrap replicates: 10000
+Bootstrap seed: 30082026
+Primary contrast: medium-off
+This workflow performs no model inference. It decrypts final model outputs and withheld CAMS truth only inside GitHub Actions and exports aggregate analysis outputs only.
