@@ -1,0 +1,8 @@
+Study 1 zero-cost robustness/mechanism analysis
+Final generation artifact id: 9750263228
+Final valid requests: 3000
+Frozen request SHA256: 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+Sensitivity focus: repeated finish_reason=length recovery tail
+Bootstrap replicates: 10000
+Bootstrap seed: 30082026
+No model inference. Aggregate outputs only.
