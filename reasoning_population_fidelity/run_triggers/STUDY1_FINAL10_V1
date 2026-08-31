@@ -1,0 +1,14 @@
+Study 1 final 10 repeated operational recovery
+Seed artifact id: 9749773477
+Seed valid requests: 2990
+Remaining frozen requests: 10
+Remaining condition counts: off=0, low=6, medium=4
+Frozen request SHA256: 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+Frozen token caps unchanged: off=120, low=1100, medium=1430
+Frozen per-cycle retry policy: 3
+Additional recovery cycles allowed: 4
+Final operational recovery cap: 9.20 USD
+Project hard cap: 9.50 USD
+Interim outcomes were viewed before this recovery.
+No treatment, prompt, schema, model, provider, reasoning effort, or token cap is changed.
+Operational retry protocol is extended and disclosed because the remaining requests have repeated finish_reason=length failures.
