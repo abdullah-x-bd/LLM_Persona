@@ -1,0 +1,72 @@
+name: Follow-up study suite zero-cost preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studies/**'
+      - '.github/workflows/study_suite_preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install zero-cost dependencies
+        run: pip install cryptography
+      - name: Compile suite code
+        run: |
+          python -m py_compile studies/common/suite_core.py
+          python -m py_compile studies/common/openrouter_preflight.py
+          python -m py_compile studies/common/paid_runner.py
+      - name: Reconstruct and statically audit preflight-ready studies
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/preflight
+          for S in S01_second_model_reasoning S02_length_safe_reasoning S03_persona_reasoning_factorial; do
+            python studies/common/suite_core.py static "$S" | tee "/tmp/preflight/${S}.static.json"
+            python studies/common/suite_core.py build "$S" --out "/tmp/${S}.requests.jsonl"
+            test -s "/tmp/${S}.requests.jsonl"
+            rm "/tmp/${S}.requests.jsonl"
+          done
+      - name: Live OpenRouter metadata, provider, price and balance checks without inference
+        run: |
+          set -euo pipefail
+          for S in S01_second_model_reasoning S02_length_safe_reasoning S03_persona_reasoning_factorial; do
+            python studies/common/openrouter_preflight.py "$S" --out "/tmp/preflight/${S}.live.json"
+          done
+      - name: Verify deliberate data blocks on PLFS and fresh holdout
+        run: |
+          set -euo pipefail
+          python studies/common/suite_core.py readiness S04_plfs_reasoning_replication | tee /tmp/preflight/S04.readiness.json
+          python studies/common/suite_core.py readiness S05_fresh_holdout_confirmation | tee /tmp/preflight/S05.readiness.json
+          python - <<'PY'
+          import json, subprocess
+          for s in ('S04_plfs_reasoning_replication','S05_fresh_holdout_confirmation'):
+              out=subprocess.check_output(['python','studies/common/suite_core.py','readiness',s],text=True)
+              x=json.loads(out)
+              assert not x['data_ready'], (s,x)
+              assert x['missing_assets'], (s,x)
+          print('PASS: S04/S05 remain blocked before paid inference because required truth/holdout assets are absent')
+          PY
+      - name: Verify no chat-completions call exists in zero-cost preflight
+        run: |
+          ! grep -R '/chat/completions' studies/common/openrouter_preflight.py
+          echo 'PASS: preflight cannot call inference endpoint'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: followup-study-suite-preflight
+          path: /tmp/preflight/
+          retention-days: 30
+          if-no-files-found: error
