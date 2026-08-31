@@ -2,39 +2,46 @@
 
 Working project title: **Does Thinking Make Synthetic People Less Human? Reasoning, Demographic Overdetermination, and Uncertainty in LLM Population Simulation**
 
-## Scope
+## Status
 
-This folder is an isolated workspace for the new CAMS-grounded synthetic population experiment. All new code, prompts, configs, manifests, outputs, checkpoints, analyses, and paper-supporting artifacts for this study should remain under this directory.
+The primary CAMS reasoning experiment is complete.
 
-## Core research questions
+- 1,000 frozen CAMS respondents
+- 3 reasoning conditions: off, low, medium
+- 3,000 / 3,000 final schema-valid responses
+- model: `qwen/qwen3.8-27b`
+- provider: AkashML, pinned without fallbacks
+- human truth withheld throughout generation
+- final truth-linked aggregate analysis completed with the frozen 10,000-replicate paired bootstrap
 
-1. Does increasing inference-time reasoning change the fidelity of LLM synthetic respondents relative to real CAMS respondents?
-2. Does reasoning alter population-level prevalence error, subgroup fidelity, response diversity, and demographic dependence?
-3. Does cross-model disagreement predict synthetic-human mismatch?
-4. Can disagreement-based selective deferral improve the reliability of synthetic population estimates?
+The original USD 10.30 line in early planning documents was the initial engineering budget for this experiment, not a standing repository-wide budget. Recovery work later required an explicitly documented operational extension. Historical run and recovery details are retained in the engineering changelog rather than rewritten.
 
-## Budget constraint
+## Core result
 
-OpenRouter experimental budget: **USD 10.30**.
+The main result is a micro/macro divergence. Increasing reasoning improved respondent-level proper probabilistic scores, including Brier score and log loss, but did not translate into better categorical synthetic-population fidelity. In the full prespecified analysis, medium reasoning also worsened probability-prevalence MAE, although that macro probability effect is sensitive to the length-failure tail. Hard prevalence degradation and individual probabilistic improvement are substantially more robust.
 
-No paid run should begin until the complete pipeline has passed local dry runs, schema validation, retry/caching checks, cost estimation, and a small paid pilot.
+The analysis also identified joint-distribution compression and a strong underrepresentation of a common phone-first digital phenotype. See the final analysis and robustness code under `src/` and the repo-wide synthesis under `docs/`.
 
-## Planned structure
+## Folder structure
 
-- `config/` experiment settings and model parameters
-- `data/` local manifests and processed research data references
-- `prompts/` frozen prompt templates and schemas
-- `src/` experiment and analysis code
-- `outputs/` API results, checkpoints, and run metadata
-- `analysis/` statistical analyses, tables, and figure-generation code
-- `tests/` unit and integration tests
-- `docs/` design notes, hypotheses, and preregistration material
+- `config/` frozen experiment settings and model parameters
+- `prompts/` frozen prompt schema
+- `src/` generation, recovery, final analysis, robustness, and diagnostics
+- `outputs/` committed safe manifests and freeze records
+- `docs/` design and engineering provenance
+
+Large respondent-level production artifacts remain in encrypted GitHub Actions artifacts rather than version control.
 
 ## Reproducibility rules
 
 - Never store API keys in the repository.
 - Preserve raw model outputs before parsing or aggregation.
-- Cache every completed request using a deterministic request identifier.
-- Record model, provider, parameters, prompt version, timestamp, token counts, and cost for every call.
-- Keep paid and dry-run outputs clearly separated.
-- Freeze the primary analysis plan before the full paid run.
+- Use deterministic request identifiers and frozen request hashes.
+- Record model, provider, parameters, prompt version, token counts, finish reason, latency, retries, and cost for paid calls.
+- Keep human truth inaccessible to generation code.
+- Keep confirmatory and exploratory analyses clearly separated.
+- Record post-freeze engineering deviations rather than silently rewriting history.
+
+## Follow-up experiments
+
+The five confirmatory follow-up studies motivated by this result now live under `studies/`. They share a common zero-cost preflight, paid runner, privacy policy, and experiment registry.
