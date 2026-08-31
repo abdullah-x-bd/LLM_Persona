@@ -1,0 +1,11 @@
+Study 1 completion-only operational recovery
+Seed artifact id: 9737889565
+Seed valid requests: 2899
+Remaining frozen requests: 101
+Frozen request SHA256: 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+Frozen Study 1 budget cap: 7.80 USD
+Operational completion recovery cap: 8.50 USD
+Project hard cap: 9.50 USD
+Interim outcomes were viewed before this recovery.
+No scientific design, treatment, generation, provider, prompt, schema, or analysis setting is changed.
+Purpose: collect only missing IDs from the already frozen 3000-request Study 1.
