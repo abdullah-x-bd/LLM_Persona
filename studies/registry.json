@@ -1,8 +1,7 @@
 {
-  "suite_version": 2,
+  "suite_version": 3,
   "created_utc": "2026-08-31",
   "privacy": {
-    "provider_name": "AkashML",
     "allow_fallbacks": false,
     "data_collection": "deny",
     "raw_results_encrypted": true,
@@ -11,13 +10,15 @@
   "models": {
     "qwen": {
       "id": "qwen/qwen3.8-27b",
+      "provider_name": "AkashML",
       "planning_input_usd_per_million": 0.35,
       "planning_output_usd_per_million": 2.75
     },
     "deepseek_v4_flash": {
       "id": "deepseek/deepseek-v4-flash-0731",
-      "planning_input_usd_per_million": 0.14,
-      "planning_output_usd_per_million": 0.28
+      "provider_name": "OpenInference",
+      "planning_input_usd_per_million": 0.03,
+      "planning_output_usd_per_million": 0.16
     }
   },
   "studies": {
