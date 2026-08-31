@@ -1,0 +1,15 @@
+Study 1 final 23-request completion recovery
+Seed artifact id: 9748812591
+Seed workflow run id: 33366725048
+Seed valid requests: 2977
+Remaining frozen requests: 23
+Missing condition counts: off=0, low=18, medium=5
+Frozen request SHA256: 120cc6bef15e7b2eb8fb2c49c7efa2fab5496b0a429cf34c8d9100b588cf9293
+Frozen Study 1 budget cap: 7.80 USD
+Prior operational recovery cap: 8.50 USD
+Final operational recovery cap: 8.75 USD
+Project hard cap: 9.50 USD
+Expected additional effective cost from seed history: approximately 0.0911 USD
+No scientific design, treatment, model, provider, prompt, response schema, or analysis setting is changed.
+Operational reliability only: concurrency 2, batch size 6.
+Purpose: collect only the final 23 missing IDs from the already frozen 3000-request Study 1.
