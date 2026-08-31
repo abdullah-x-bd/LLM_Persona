@@ -1,0 +1,6 @@
+Launch authorization: S01_second_model_reasoning followed by S03_persona_reasoning_factorial.
+Scientific designs are frozen in studies/registry.json.
+Paid caps: S01 <= $0.90, S03 <= $0.85.
+DeepSeek provider pin: OpenInference FP8.
+Fallbacks disabled. Data collection denied. Human truth not loaded during generation.
+S03 starts only after S01 passes its 2000/2000 integrity gate.
