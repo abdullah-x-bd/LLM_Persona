@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -22,7 +21,6 @@ from suite_core import SCHEMA, build_requests, load_registry, static_report
 from openrouter_preflight import choose_endpoint
 from paid_pilot import BASE, request_json, usage_record
 
-LOCK=threading.Lock()
 AAD=b"LLM_PERSONA_FOLLOWUP_SUITE_V1"
 
 
@@ -36,11 +34,11 @@ def validate_compact(obj: dict) -> None:
 
 def reasoning_payload(level: str) -> dict:
     if level=="off": return {"enabled":False,"exclude":True}
-    if level=="medium": return {"effort":"medium","exclude":True}
+    if level in {"low","medium","high","xhigh"}: return {"effort":level,"exclude":True}
     raise ValueError(level)
 
 
-def payload(row: dict, schema: dict, endpoint: dict, cap_prices: dict) -> dict:
+def payload(row: dict, schema: dict, endpoint: dict) -> dict:
     return {
         "model":row["model"],
         "messages":[{"role":"user","content":row["prompt"]}],
@@ -54,7 +52,7 @@ def payload(row: dict, schema: dict, endpoint: dict, cap_prices: dict) -> dict:
             "allow_fallbacks":False,
             "require_parameters":True,
             "data_collection":"deny",
-            "max_price":{"prompt":cap_prices["input_per_m"],"completion":cap_prices["output_per_m"]}
+            "max_price":{"prompt":endpoint["input_per_m"],"completion":endpoint["output_per_m"]}
         },
         "usage":{"include":True}
     }
@@ -76,7 +74,7 @@ def encrypt_rows(rows: list[dict], out: Path, key: str, study_id: str) -> None:
 def one(row: dict, schema: dict, ep: dict, key: str, attempt: int) -> tuple[dict,dict|None]:
     start=time.perf_counter(); c=ceiling(row,ep)
     try:
-        response=request_json(f"{BASE}/chat/completions",key,payload(row,schema,ep,ep),timeout=180)
+        response=request_json(f"{BASE}/chat/completions",key,payload(row,schema,ep),timeout=180)
         accounting=usage_record(response,key)
         choice=(response.get("choices") or [{}])[0]; content=(choice.get("message") or {}).get("content")
         parsed=json.loads(content); validate_compact(parsed)
@@ -101,7 +99,7 @@ def run(study_id: str, spend_cap: float, outdir: Path) -> dict:
     for mk in sorted({r["model_key"] for r in rows}): eps[mk]=choose_endpoint(reg["models"][mk]["id"],key,reg["privacy"]["provider_name"])
     single=sum(ceiling(r,eps[r["model_key"]]) for r in rows)
     if single > spend_cap+1e-12: raise RuntimeError(f"Live hard single-pass ceiling {single:.6f} exceeds cap {spend_cap:.6f}")
-    attempts=[]; successes={}; raw={}
+    attempts=[]; successes={}; raw={}; row_by_id={r["request_id"]:r for r in rows}
     concurrency=6
     print(json.dumps({"status":"PAID_STUDY_START","study_id":study_id,"requests":len(rows),"respondents":len({r['anon_id'] for r in rows}),"single_pass_ceiling_usd":round(single,6),"spend_cap_usd":spend_cap,"endpoints":eps,"truth_loaded":False},indent=2))
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
@@ -124,7 +122,7 @@ def run(study_id: str, spend_cap: float, outdir: Path) -> dict:
     (outdir/"attempts.json").write_text(json.dumps(attempts_safe,indent=2,sort_keys=True),encoding="utf-8")
     encrypt_rows([raw[k] for k in sorted(raw)],outdir/"raw_results.enc.b64",key,study_id)
     by_arm={arm["id"]:0 for arm in study["arms"]}
-    for rid in successes: by_arm[next(r["arm_id"] for r in rows if r["request_id"]==rid)]+=1
+    for rid in successes: by_arm[row_by_id[rid]["arm_id"]]+=1
     summary={"study_id":study_id,"planned_requests":len(rows),"schema_valid":len(successes),"remaining_failures":len(missing),"by_arm":by_arm,"attempts":len(attempts),"accounted_upper_bound_usd":round(sum(float(x.get("accounted_upper_bound_usd") or 0) for x in attempts),6),"spend_cap_usd":spend_cap,"provider_name":reg["privacy"]["provider_name"],"endpoint_tags":{k:v["tag"] for k,v in eps.items()},"allow_fallbacks":False,"data_collection":"deny","truth_loaded":False,"all_schema_valid":len(missing)==0}
     (outdir/"summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True),encoding="utf-8")
     print(json.dumps(summary,indent=2,sort_keys=True))
