@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: pip install cryptography
+        run: pip install cryptography numpy pandas
       - name: Require literal paid confirmation
         run: |
           test '${{ inputs.confirm }}' = 'I_ACCEPT_PAID_INFERENCE'
@@ -52,7 +52,6 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          from pathlib import Path
           sid='${{ inputs.study_id }}'
           cap=float('${{ inputs.spend_cap_usd }}')
           reg=json.load(open('studies/registry.json'))
