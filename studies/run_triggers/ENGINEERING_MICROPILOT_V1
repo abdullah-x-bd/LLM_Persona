@@ -1,3 +1,3 @@
 FOLLOWUP_ENGINEERING_MICROPILOT_V1
-Created after documentation sweep and successful zero-cost suite preflight.
+Retry 2 after adding negative endpoint-status blocking. Candidate scan immediately before this retry found DeepSeek AkashML status 0 and Qwen AkashML healthy.
 Engineering only. 2 respondents per study. Every arm exercised. 24 total model calls. Hard cap USD 0.15. S04/S05 use proxy personas and remain scientifically blocked.
