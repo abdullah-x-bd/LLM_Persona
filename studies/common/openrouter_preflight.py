@@ -17,7 +17,7 @@ REQUIRED = {"response_format", "max_tokens"}
 
 
 def get_json(url: str, key: str) -> dict:
-    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-Followup-ZeroCost/1.0"})
+    req=urllib.request.Request(url,headers={"Authorization":f"Bearer {key}","User-Agent":"LLM-Persona-Followup-ZeroCost/1.1"})
     with urllib.request.urlopen(req,timeout=30) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -68,23 +68,33 @@ def main() -> int:
         m=by_id[mid]; params=set(m.get("supported_parameters") or [])
         missing=REQUIRED-params
         if missing: raise RuntimeError(f"{mid} missing required parameters: {sorted(missing)}")
-        if any(arm["model"]==mk and arm["reasoning"]!="off" for arm in study["arms"]):
+        arms=[arm for arm in study["arms"] if arm["model"]==mk]
+        off_present=any(arm["reasoning"]=="off" for arm in arms)
+        enabled_efforts={arm["reasoning"] for arm in arms if arm["reasoning"]!="off"}
+        reasoning_meta=m.get("reasoning") or {}
+        if enabled_efforts:
             if "reasoning" not in params: raise RuntimeError(f"{mid} does not advertise reasoning")
-            reasoning_meta=m.get("reasoning") or {}
-            if reasoning_meta.get("mandatory"):
+            if off_present and reasoning_meta.get("mandatory"):
                 raise RuntimeError(f"{mid} metadata says reasoning mandatory, invalidating off arm")
-            efforts=reasoning_meta.get("supported_efforts")
-            if efforts is not None and "medium" not in efforts:
-                raise RuntimeError(f"{mid} does not advertise medium reasoning: {efforts}")
+            supported=reasoning_meta.get("supported_efforts")
+            if supported is not None:
+                unsupported=enabled_efforts-set(supported)
+                if unsupported: raise RuntimeError(f"{mid} does not advertise frozen efforts {sorted(unsupported)}; supported={supported}")
         ep=choose_endpoint(mid,key,provider_name)
         ep_params=set(ep["supported_parameters"])
         if not REQUIRED.issubset(ep_params): raise RuntimeError(f"Pinned endpoint {ep['tag']} lacks structured output/max_tokens")
-        if any(arm["model"]==mk and arm["reasoning"]!="off" for arm in study["arms"]) and "reasoning" not in ep_params:
+        if enabled_efforts and "reasoning" not in ep_params:
             raise RuntimeError(f"Pinned endpoint {ep['tag']} lacks reasoning")
         svals=static["models"][mk]
         cost=svals["approx_input_tokens"]/1e6*ep["input_per_m"]+svals["hard_completion_tokens"]/1e6*ep["output_per_m"]
         live_total += cost
-        live_models[mk]={"model":mid,"endpoint":ep,"hard_single_pass_ceiling_usd":round(cost,6)}
+        live_models[mk]={
+            "model":mid,
+            "reasoning_metadata":reasoning_meta,
+            "frozen_enabled_efforts":sorted(enabled_efforts),
+            "endpoint":ep,
+            "hard_single_pass_ceiling_usd":round(cost,6)
+        }
     cap=float(study["study_spend_cap_usd"])
     remaining=key_info.get("limit_remaining")
     report={
