@@ -5,7 +5,6 @@ import csv
 import hashlib
 import json
 import math
-import os
 import sys
 from io import StringIO
 from pathlib import Path
@@ -45,8 +44,7 @@ def load_registry() -> dict[str, Any]:
 def stable_select(rows: list[dict], n: int, seed: int) -> list[dict]:
     if n > len(rows):
         raise AssertionError(f"Requested {n} respondents from only {len(rows)}")
-    keyed = sorted(rows, key=lambda r: hashlib.sha256(f"{seed}|{r['anon_id']}".encode()).hexdigest())
-    return keyed[:n]
+    return sorted(rows, key=lambda r: hashlib.sha256(f"{seed}|{r['anon_id']}".encode()).hexdigest())[:n]
 
 
 def cams_rows(bundle: Path = CAMS_CODES) -> list[dict]:
@@ -71,8 +69,7 @@ def plfs_rows() -> list[dict]:
 
 
 def cams_persona(raw: dict, condition: str) -> str:
-    decoded = production_runtime.decode_row(raw)
-    persona = prepare_sample.build_persona(decoded, condition)
+    persona = prepare_sample.build_persona(production_runtime.decode_row(raw), condition)
     validate_persona(persona)
     return persona
 
@@ -101,126 +98,100 @@ def build_plfs_prompt(persona: str) -> str:
 
 def source_assets(study: dict) -> dict[str, Path | None]:
     source = study["source"]
-    if source == "cams_existing_1000":
-        return {"codes": CAMS_CODES, "truth": CAMS_TRUTH}
-    if source == "plfs_existing_1500":
-        truth = ROOT / study["requires_truth"]
-        return {"codes": None, "truth": truth}
-    if source == "cams_fresh_holdout_v1":
-        return {"codes": ROOT / study["requires_codes"], "truth": ROOT / study["requires_truth"]}
+    if source == "cams_existing_1000": return {"codes": CAMS_CODES, "truth": CAMS_TRUTH}
+    if source == "plfs_existing_1500": return {"codes": None, "truth": ROOT / study["requires_truth"]}
+    if source == "cams_fresh_holdout_v1": return {"codes": ROOT / study["requires_codes"], "truth": ROOT / study["requires_truth"]}
     raise ValueError(source)
 
 
 def readiness(study_id: str) -> dict:
-    reg = load_registry(); study = reg["studies"][study_id]
-    assets = source_assets(study)
-    missing = []
+    reg = load_registry(); study = reg["studies"][study_id]; assets = source_assets(study)
+    missing=[]
     if study["source"] == "plfs_existing_1500":
-        parts = sorted((ROOT / "data" / "encrypted").glob(PLFS_PARTS))
-        if not parts:
-            missing.append("PLFS code bundle parts")
+        if not sorted((ROOT / "data" / "encrypted").glob(PLFS_PARTS)): missing.append("PLFS code bundle parts")
     elif assets["codes"] is not None and not assets["codes"].exists():
         missing.append(str(assets["codes"].relative_to(ROOT)))
     if assets["truth"] is not None and not assets["truth"].exists():
         missing.append(str(assets["truth"].relative_to(ROOT)))
-    return {"study_id": study_id, "declared_status": study["status"], "missing_assets": missing, "data_ready": not missing}
+    return {"study_id":study_id,"declared_status":study["status"],"missing_assets":missing,"data_ready":not missing}
 
 
-def build_requests(study_id: str) -> list[dict]:
-    reg = load_registry(); study = reg["studies"][study_id]
-    ready = readiness(study_id)
-    # Generation never reads truth, but a paid study is deliberately blocked if the analysis truth asset is absent.
-    if not ready["data_ready"]:
+def build_requests(study_id: str, *, require_analysis_assets: bool = True, proxy_holdout: bool = False) -> list[dict]:
+    reg=load_registry(); study=reg["studies"][study_id]; ready=readiness(study_id)
+    if require_analysis_assets and not ready["data_ready"]:
         raise FileNotFoundError("Missing required study assets: " + ", ".join(ready["missing_assets"]))
-    source = study["source"]
-    if source in {"cams_existing_1000", "cams_fresh_holdout_v1"}:
-        bundle = CAMS_CODES if source == "cams_existing_1000" else ROOT / study["requires_codes"]
-        base = stable_select(cams_rows(bundle), int(study["respondents"]), int(study["selection_seed"]))
-        persona_fn = lambda r, c: cams_persona(r, c)
-        prompt_fn = build_cams_prompt
+    source=study["source"]
+    if source == "cams_existing_1000":
+        base=stable_select(cams_rows(CAMS_CODES),int(study["respondents"]),int(study["selection_seed"])); persona_fn=lambda r,c:cams_persona(r,c); prompt_fn=build_cams_prompt
     elif source == "plfs_existing_1500":
-        base = stable_select(plfs_rows(), int(study["respondents"]), int(study["selection_seed"]))
-        persona_fn = lambda r, c: plfs_persona(r)
-        prompt_fn = build_plfs_prompt
-    else:
-        raise ValueError(source)
+        base=stable_select(plfs_rows(),int(study["respondents"]),int(study["selection_seed"])); persona_fn=lambda r,c:plfs_persona(r); prompt_fn=build_plfs_prompt
+    elif source == "cams_fresh_holdout_v1":
+        bundle=ROOT/study["requires_codes"]
+        if bundle.exists():
+            base=stable_select(cams_rows(bundle),int(study["respondents"]),int(study["selection_seed"])); proxy=False
+        elif proxy_holdout:
+            # Cost-only proxy. Never launch from these respondents: they are from the already-used CAMS bundle.
+            base=stable_select(cams_rows(CAMS_CODES),int(study["respondents"]),int(study["selection_seed"])); proxy=True
+        else:
+            raise FileNotFoundError(str(bundle))
+        persona_fn=lambda r,c:cams_persona(r,c); prompt_fn=build_cams_prompt
+    else: raise ValueError(source)
 
-    out = []
-    schema_hash = hashlib.sha256(SCHEMA.read_bytes()).hexdigest()
+    out=[]; schema_hash=hashlib.sha256(SCHEMA.read_bytes()).hexdigest()
     for raw in base:
         for arm in study["arms"]:
-            persona = persona_fn(raw, arm["persona"])
-            prompt = prompt_fn(persona)
-            row = {
-                "study_id": study_id,
-                "anon_id": raw["anon_id"],
-                "arm_id": arm["id"],
-                "persona_condition": arm["persona"],
-                "model_key": arm["model"],
-                "model": reg["models"][arm["model"]]["id"],
-                "reasoning": arm["reasoning"],
-                "max_completion_tokens": int(arm["max_completion_tokens"]),
-                "prompt": prompt,
-                "schema_sha256": schema_hash
-            }
-            rid_payload = {k: row[k] for k in ("study_id","anon_id","arm_id","model","reasoning","max_completion_tokens","schema_sha256")}
-            rid_payload["prompt_sha256"] = hashlib.sha256(prompt.encode()).hexdigest()
-            row["request_id"] = hashlib.sha256(json.dumps(rid_payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-            out.append(row)
-    if len(out) != int(study["respondents"]) * len(study["arms"]):
-        raise AssertionError("Wrong request count")
-    if len({r["request_id"] for r in out}) != len(out):
-        raise AssertionError("Duplicate request IDs")
+            persona=persona_fn(raw,arm["persona"]); prompt=prompt_fn(persona)
+            row={"study_id":study_id,"anon_id":raw["anon_id"],"arm_id":arm["id"],"persona_condition":arm["persona"],"model_key":arm["model"],"model":reg["models"][arm["model"]]["id"],"reasoning":arm["reasoning"],"max_completion_tokens":int(arm["max_completion_tokens"]),"prompt":prompt,"schema_sha256":schema_hash}
+            rid_payload={k:row[k] for k in ("study_id","anon_id","arm_id","model","reasoning","max_completion_tokens","schema_sha256")}; rid_payload["prompt_sha256"]=hashlib.sha256(prompt.encode()).hexdigest()
+            row["request_id"]=hashlib.sha256(json.dumps(rid_payload,sort_keys=True,separators=(",",":")).encode()).hexdigest(); out.append(row)
+    if len(out)!=int(study["respondents"])*len(study["arms"]): raise AssertionError("Wrong request count")
+    if len({r["request_id"] for r in out})!=len(out): raise AssertionError("Duplicate request IDs")
     return out
 
 
-def approx_tokens(text: str) -> int:
-    return max(1, math.ceil(len(text) / 3.2))
+def approx_tokens(text: str) -> int: return max(1, math.ceil(len(text)/3.2))
+
+
+def summarize_cost(rows: list[dict], reg: dict) -> tuple[dict,float]:
+    by_model={}; planning=0.0
+    for r in rows:
+        m=by_model.setdefault(r["model_key"],{"requests":0,"approx_input_tokens":0,"hard_completion_tokens":0})
+        m["requests"]+=1; m["approx_input_tokens"]+=approx_tokens(r["prompt"]); m["hard_completion_tokens"]+=r["max_completion_tokens"]
+    for key,vals in by_model.items():
+        model=reg["models"][key]; vals["model"]=model["id"]
+        vals["planning_price_usd_per_million"]={"input":model["planning_input_usd_per_million"],"output":model["planning_output_usd_per_million"]}
+        vals["planning_hard_ceiling_usd"]=vals["approx_input_tokens"]/1e6*model["planning_input_usd_per_million"]+vals["hard_completion_tokens"]/1e6*model["planning_output_usd_per_million"]
+        planning+=vals["planning_hard_ceiling_usd"]
+    return by_model,planning
 
 
 def static_report(study_id: str) -> dict:
-    reg = load_registry(); study = reg["studies"][study_id]; ready = readiness(study_id)
-    report = {**ready, "paid_inference_performed": False, "truth_loaded": False}
-    if not ready["data_ready"]:
-        report["status"] = "BLOCKED_DATA"
-        return report
-    rows = build_requests(study_id)
-    by_model: dict[str, dict] = {}
-    for r in rows:
-        m = by_model.setdefault(r["model_key"], {"requests":0,"approx_input_tokens":0,"hard_completion_tokens":0})
-        m["requests"] += 1; m["approx_input_tokens"] += approx_tokens(r["prompt"]); m["hard_completion_tokens"] += r["max_completion_tokens"]
-    planning = 0.0
-    for key, vals in by_model.items():
-        model = reg["models"][key]
-        vals["model"] = model["id"]
-        vals["planning_price_usd_per_million"] = {"input":model["planning_input_usd_per_million"],"output":model["planning_output_usd_per_million"]}
-        vals["planning_hard_ceiling_usd"] = vals["approx_input_tokens"] / 1e6 * model["planning_input_usd_per_million"] + vals["hard_completion_tokens"] / 1e6 * model["planning_output_usd_per_million"]
-        planning += vals["planning_hard_ceiling_usd"]
-    report.update({
-        "status":"PASS_STATIC",
-        "respondents":study["respondents"],
-        "new_paid_requests":len(rows),
-        "models":by_model,
-        "planning_hard_ceiling_usd":round(planning,6),
-        "study_spend_cap_usd":float(study["study_spend_cap_usd"]),
-        "request_set_sha256":hashlib.sha256("\n".join(sorted(r["request_id"] for r in rows)).encode()).hexdigest(),
-        "prompt_leakage_scan":"PASS" if source_assets(study).get("truth") else "NOT_APPLICABLE"
-    })
-    if planning > float(study["study_spend_cap_usd"]):
-        report["status"] = "BLOCKED_BUDGET"
+    reg=load_registry(); study=reg["studies"][study_id]; ready=readiness(study_id); report={**ready,"paid_inference_performed":False,"truth_loaded":False}
+    if not ready["data_ready"]: report["status"]="BLOCKED_DATA"; return report
+    rows=build_requests(study_id); by_model,planning=summarize_cost(rows,reg)
+    report.update({"status":"PASS_STATIC","respondents":study["respondents"],"new_paid_requests":len(rows),"models":by_model,"planning_hard_ceiling_usd":round(planning,6),"study_spend_cap_usd":float(study["study_spend_cap_usd"]),"request_set_sha256":hashlib.sha256("\n".join(sorted(r["request_id"] for r in rows)).encode()).hexdigest(),"prompt_leakage_scan":"PASS"})
+    if planning>float(study["study_spend_cap_usd"]): report["status"]="BLOCKED_BUDGET"
     return report
 
 
+def projection_report(study_id: str) -> dict:
+    """Cost projection for blocked studies. It never makes a study launchable."""
+    reg=load_registry(); study=reg["studies"][study_id]; ready=readiness(study_id)
+    proxy_holdout=study["source"]=="cams_fresh_holdout_v1" and not (ROOT/study["requires_codes"]).exists()
+    rows=build_requests(study_id,require_analysis_assets=False,proxy_holdout=proxy_holdout)
+    by_model,planning=summarize_cost(rows,reg)
+    return {"study_id":study_id,"launch_ready":ready["data_ready"],"missing_assets":ready["missing_assets"],"projection_only":not ready["data_ready"],"holdout_prompt_proxy":proxy_holdout,"proxy_note":"Existing CAMS persona-length distribution used only to estimate prompt tokens; final holdout request IDs are not frozen." if proxy_holdout else None,"respondents":study["respondents"],"new_paid_requests":len(rows),"models":by_model,"planning_hard_ceiling_usd":round(planning,6),"study_spend_cap_usd":float(study["study_spend_cap_usd"]),"paid_inference_performed":False,"truth_loaded":False}
+
+
 def main() -> None:
-    ap=argparse.ArgumentParser(); ap.add_argument("command",choices=["readiness","build","static"]); ap.add_argument("study_id"); ap.add_argument("--out")
-    a=ap.parse_args()
-    if a.command == "readiness": obj=readiness(a.study_id)
-    elif a.command == "static": obj=static_report(a.study_id)
+    ap=argparse.ArgumentParser(); ap.add_argument("command",choices=["readiness","build","static","projection"]); ap.add_argument("study_id"); ap.add_argument("--out"); a=ap.parse_args()
+    if a.command=="readiness": obj=readiness(a.study_id)
+    elif a.command=="static": obj=static_report(a.study_id)
+    elif a.command=="projection": obj=projection_report(a.study_id)
     else:
         rows=build_requests(a.study_id); obj={"study_id":a.study_id,"requests":len(rows),"respondents":len({r['anon_id'] for r in rows})}
         if not a.out: raise SystemExit("--out required for build")
         p=Path(a.out); p.parent.mkdir(parents=True,exist_ok=True); p.write_text("".join(json.dumps(r,separators=(",",":"),ensure_ascii=False)+"\n" for r in rows),encoding="utf-8")
     print(json.dumps(obj,indent=2,sort_keys=True))
 
-if __name__ == "__main__":
-    main()
+if __name__=="__main__": main()
