@@ -1,0 +1,74 @@
+name: PLFS final Luna Claude cross-model analysis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/plfs_final_crossmodel_analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+  FINAL_RUN_ID: '33289443913'
+  SURVEY: plfs_2023_24
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography numpy pandas scipy
+      - name: Download final Luna and Claude shards
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/luna /tmp/claude /tmp/work /tmp/out
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FINAL_RUN_ID}/artifacts?per_page=100" > /tmp/artifacts.json
+          python - <<'PY'
+          import json, os, subprocess
+          arts=json.load(open('/tmp/artifacts.json'))['artifacts']
+          wanted=[]
+          for a in arts:
+              n=a['name']
+              if n.startswith('plfs-final-luna-') and n[len('plfs-final-luna-'):].isdigit(): wanted.append(('luna',a))
+              if n.startswith('plfs-final-claude-') and n[len('plfs-final-claude-'):].isdigit(): wanted.append(('claude',a))
+          counts={m:sum(1 for x,_ in wanted if x==m) for m in ('luna','claude')}
+          assert counts=={'luna':60,'claude':10}, counts
+          for model,a in wanted:
+              dest=f'/tmp/{model}/{a["name"]}'
+              os.makedirs(dest,exist_ok=True)
+              z=f'/tmp/{a["name"]}.zip'
+              subprocess.run(['gh','api',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/artifacts/{a["id"]}/zip'],stdout=open(z,'wb'),check=True)
+              subprocess.run(['unzip','-q',z,'-d',dest],check=True)
+          print(counts)
+          PY
+      - name: Decrypt and combine final outputs
+        run: |
+          python src/multisurvey_runtime.py combine --root /tmp/luna --survey "$SURVEY" --model luna --expected 1500 --out /tmp/work/luna.jsonl --manifest /tmp/work/luna_manifest.json
+          python src/multisurvey_runtime.py combine --root /tmp/claude --survey "$SURVEY" --model claude --expected 250 --out /tmp/work/claude.jsonl --manifest /tmp/work/claude_manifest.json
+          python - <<'PY'
+          import json
+          a=json.load(open('/tmp/work/luna_manifest.json')); b=json.load(open('/tmp/work/claude_manifest.json'))
+          assert a['complete'] and a['successful_unique_requests']==1500,a
+          assert b['complete'] and b['successful_unique_requests']==250,b
+          print('PLFS_FINAL_RESULTS_RECONSTRUCTED')
+          PY
+      - name: Analyze exact matched respondent intersection
+        run: |
+          python src/analyze_crossmodel.py --a /tmp/work/luna.jsonl --b /tmp/work/claude.jsonl --model-a luna --model-b claude --out /tmp/out
+          python - <<'PY'
+          import json
+          p='/tmp/out/summary.json'; m=json.load(open(p)); m['survey']='plfs_2023_24'; m['final_source_run_id']=33289443913; m['luna_full_requests']=1500; m['claude_requests']=250; open(p,'w').write(json.dumps(m,indent=2)); print(json.dumps(m,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plfs-final-luna-claude-crossmodel
+          path: /tmp/out/
+          retention-days: 90
