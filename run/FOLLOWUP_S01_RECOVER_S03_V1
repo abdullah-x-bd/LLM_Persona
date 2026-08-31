@@ -1,0 +1,18 @@
+S01 recovery and S03 production authorization
+
+Seed workflow run: 33385585343
+Seed artifact: followup-S01-production-33385585343
+Seed artifact id: 9761180439
+Seed S01 valid: 1663 / 2000
+Seed counts: rich_off 984, rich_high 679
+Missing: 337
+Failure reason of original run: GitHub 180-minute timeout during sequential retry phase after full first pass
+Scientific design changes: false
+Prompt/model/reasoning/schema changes: false
+Operational change: retry scheduling parallelized and checkpoints written during retry waves
+S01 recovery additional cap: USD 0.30
+S03 registered cap: USD 0.85
+Provider: OpenInference FP8
+Fallbacks: disabled
+Data collection: deny
+Human truth loaded during generation: false
