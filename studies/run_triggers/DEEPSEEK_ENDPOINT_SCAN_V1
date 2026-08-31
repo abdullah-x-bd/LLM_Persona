@@ -1,0 +1,2 @@
+DEEPSEEK_ENDPOINT_SCAN_V1
+Metadata only. No inference. Enumerate all DeepSeek V4 Flash serving endpoints that support reasoning, structured output, and max_tokens after AkashML returned 429 under concurrency.
