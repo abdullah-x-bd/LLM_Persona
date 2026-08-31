@@ -1,0 +1,144 @@
+name: Follow-up S01 recovery then S03 production
+
+on:
+  push:
+    paths:
+      - 'run/FOLLOWUP_S01_RECOVER_S03_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  s01-recover:
+    name: Recover only S01 missing 337
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile exact recovery path
+        run: python -m py_compile studies/common/paid_runner.py studies/common/resume_followup.py studies/common/openrouter_preflight.py
+      - name: Download authoritative S01 timeout checkpoint
+        run: |
+          rm -rf /tmp/s01_seed && mkdir -p /tmp/s01_seed
+          gh run download 33385585343 --repo "$GITHUB_REPOSITORY" --name followup-S01-production-33385585343 --dir /tmp/s01_seed
+          test -f /tmp/s01_seed/s01_output/summary.json
+          test -f /tmp/s01_seed/s01_output/raw_results.enc.b64
+          test -f /tmp/s01_seed/s01_output/attempts.json
+      - name: Verify seed is exactly 1663 of 2000
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_seed/s01_output/summary.json'))
+          assert x['study_id']=='S01_second_model_reasoning',x
+          assert x['planned_requests']==2000 and x['schema_valid']==1663 and x['remaining_failures']==337,x
+          assert x['by_arm']=={'rich_high':679,'rich_off':984},x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8',x
+          assert x['truth_loaded'] is False and x['data_collection']=='deny',x
+          print('S01_1663_SEED_PASS')
+          PY
+      - name: Fresh zero-cost S01 provider preflight
+        run: python studies/common/openrouter_preflight.py S01_second_model_reasoning --out /tmp/s01_recovery_live.json
+      - name: Recover missing requests in parallel
+        id: recover
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s01_recovered
+          python studies/common/resume_followup.py --seed-dir /tmp/s01_seed/s01_output --outdir /tmp/s01_recovered --recovery-cap 0.30 --max-cycles 6 --concurrency 8
+      - name: Upload recovered S01 checkpoint and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S01-recovered-${{ github.run_id }}
+          path: |
+            /tmp/s01_recovered/raw_results.enc.b64
+            /tmp/s01_recovered/attempts.json
+            /tmp/s01_recovered/summary.json
+            /tmp/s01_recovery_live.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: S01 recovered integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s01_recovered/summary.json'))
+          assert x['planned_requests']==2000 and x['schema_valid']==2000 and x['remaining_failures']==0,x
+          assert x['by_arm']=={'rich_high':1000,'rich_off':1000},x
+          assert x['all_schema_valid'] is True and x['truth_loaded'] is False,x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8',x
+          assert float(x['recovery_accounted_upper_bound_usd']) <= 0.30+1e-12,x
+          print('S01_RECOVERED_PRODUCTION_GATE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
+
+  s03:
+    name: S03 thin persona factorial cells
+    needs: s01-recover
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile parallel production path
+        run: python -m py_compile studies/common/paid_runner.py studies/common/paid_runner_parallel.py studies/common/openrouter_preflight.py
+      - name: Final zero-cost S03 preflight
+        run: python studies/common/openrouter_preflight.py S03_persona_reasoning_factorial --out /tmp/s03_live.json
+      - name: Assert S03 provider and ceiling
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_live.json'))
+          assert x['status']=='PASS_LIVE',x
+          assert x['models']['deepseek_v4_flash']['endpoint']['tag']=='open-inference/fp8',x
+          assert x['models']['deepseek_v4_flash']['endpoint_healthy'] is True,x
+          assert float(x['hard_single_pass_live_ceiling_usd']) <= 0.85,x
+          print('S03_ZERO_COST_GATE_PASS')
+          PY
+      - name: Run S03 with parallel retry waves
+        id: infer
+        continue-on-error: true
+        env:
+          ENABLE_PAID_STUDY_SUITE: I_ACCEPT_PAID_INFERENCE
+        run: |
+          rm -rf /tmp/s03_output
+          python studies/common/paid_runner_parallel.py S03_persona_reasoning_factorial --spend-cap 0.85 --outdir /tmp/s03_output --concurrency 8 --max-attempts 6
+      - name: Upload S03 encrypted checkpoints and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-S03-production-${{ github.run_id }}
+          path: |
+            /tmp/s03_output/raw_results.enc.b64
+            /tmp/s03_output/attempts.json
+            /tmp/s03_output/summary.json
+            /tmp/s03_live.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: S03 integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/s03_output/summary.json'))
+          assert x['planned_requests']==2000 and x['schema_valid']==2000 and x['remaining_failures']==0,x
+          assert x['by_arm']=={'thin_off':1000,'thin_high':1000},x
+          assert x['all_schema_valid'] is True and x['truth_loaded'] is False,x
+          assert x['endpoint_tags']['deepseek_v4_flash']=='open-inference/fp8',x
+          assert float(x['accounted_upper_bound_usd']) <= 0.85+1e-12,x
+          print('S03_PRODUCTION_GATE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
