@@ -1,0 +1,61 @@
+name: DeepSeek OpenInference engineering probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studies/run_triggers/DEEPSEEK_OPENINFERENCE_PROBE_V1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install cryptography numpy pandas
+      - name: Compile exact payload path
+        run: |
+          python -m py_compile studies/common/deepseek_openinference_probe.py
+          python -m py_compile studies/common/paid_runner.py
+      - name: Run eight-way OpenInference DeepSeek stress probe
+        env:
+          ENABLE_PROVIDER_PROBE: YES_ENGINEERING_ONLY
+        run: python studies/common/deepseek_openinference_probe.py
+      - name: Probe integrity gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/deepseek_openinference_probe/summary.json')
+          assert p.exists(), 'probe summary missing'
+          x=json.load(open(p))
+          assert x['scientific_data'] is False
+          assert x['truth_loaded'] is False
+          assert x['substantive_outputs_inspected'] is False
+          assert x['requests']==8 and x['schema_valid']==8 and x['length_finishes']==0, x
+          assert x['endpoint']['tag']=='open-inference/fp8', x
+          assert float(x['known_realized_cost_usd']) <= 0.02 + 1e-12, x
+          print('DEEPSEEK_OPENINFERENCE_PROBE_PASS')
+          print(json.dumps(x,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deepseek-openinference-probe-v1
+          path: |
+            /tmp/deepseek_openinference_probe/summary.json
+            /tmp/deepseek_openinference_probe/attempts.json
+          retention-days: 30
+          if-no-files-found: warn
