@@ -13,16 +13,16 @@ The umbrella hypothesis is that synthetic-population fidelity is multi-level: an
 | S01 | Second-model reasoning replication | DeepSeek V4 Flash 0731 rich persona, reasoning off vs high, 1,000 paired CAMS respondents | **Zero-cost preflight passed** |
 | S02 | Length-safe reasoning replication | Qwen3.8-27B rich persona, off vs medium, 1,000 paired CAMS respondents, 3,200-token medium cap | **Zero-cost preflight passed** |
 | S03 | Persona × reasoning factorial | DeepSeek thin/off and thin/high on 1,000 CAMS respondents; rich cells reused from S01 | **Zero-cost preflight passed** |
-| S04 | PLFS cross-domain reasoning replication | DeepSeek rich/off vs rich/high on 1,000 PLFS respondents | **Blocked** until matched PLFS truth is restored; cost projection is available |
-| S05 | Fresh preregistered holdout | 500 untouched CAMS respondents across four predeclared arms | **Blocked** until fresh codes and truth are frozen; cost projection uses existing CAMS prompt lengths only |
+| S04 | PLFS cross-domain reasoning replication | DeepSeek rich/off vs rich/high on 1,000 PLFS respondents | **Blocked** until matched PLFS truth is restored; current live cost projection available |
+| S05 | Fresh preregistered holdout | 500 untouched CAMS respondents across four predeclared arms | **Blocked** until fresh codes and truth are frozen; projection uses existing CAMS prompt lengths only |
 
 The exact machine-readable specification is `studies/registry.json`.
 
 ## Why DeepSeek replaced GPT-OSS
 
-The first zero-cost gate evaluated `openai/gpt-oss-120b` for the second-model studies and found that current OpenRouter metadata marks reasoning as mandatory. That makes a genuine reasoning-off arm impossible. No paid inference had been performed. The design was therefore corrected prospectively to `deepseek/deepseek-v4-flash-0731`, for which the same gate verified optional reasoning and a supported `high` effort on the pinned AkashML endpoint.
+The first zero-cost gate evaluated `openai/gpt-oss-120b` for the second-model studies and found that current OpenRouter metadata marks reasoning as mandatory. That makes a genuine reasoning-off arm impossible. No paid inference had been performed. The design was therefore corrected prospectively to `deepseek/deepseek-v4-flash-0731`, for which the gate verified optional reasoning and a supported `high` effort on the pinned AkashML endpoint.
 
-This engineering correction is part of the provenance record and should be reported if the follow-up experiments enter a paper appendix.
+A later engineering pilot also caught a transient negative endpoint-health status for DeepSeek before any inference call was sent. The preflight was strengthened so any negative numeric endpoint status now blocks launch. A subsequent metadata scan and preflight found the endpoint healthy again at status 0. This provenance is retained because endpoint health is a real operational threat to large synthetic-population runs.
 
 ## Current hard single-pass ceilings
 
@@ -31,8 +31,10 @@ These are **worst-case ceilings**, calculated as if every request consumes its f
 - S01 live AkashML ceiling: **$0.452429**
 - S02 live AkashML ceiling: **$9.256217**
 - S03 live AkashML ceiling for the two new thin cells: **$0.430298**
+- S04 live proxy projection using the actual PLFS persona prompts: **$0.439899**
+- S05 live proxy projection using existing CAMS prompt lengths: **$5.079258**
 
-S04 and S05 are cost-projected during preflight but remain impossible to launch while their required scientific assets are missing. The latest machine-readable reports are stored as the `followup-study-suite-preflight` GitHub Actions artifact.
+S04 and S05 projections are budgeting aids only. S04 remains blocked without matched PLFS truth. S05 remains blocked until an untouched holdout is actually frozen, at which point its request-set hash and cost ceiling must be recomputed from the real holdout rather than the proxy distribution.
 
 ## Safety and spending rules
 
@@ -42,7 +44,7 @@ No file in this directory performs paid inference merely because it is pushed. P
 2. static request construction succeeds;
 3. the live zero-cost OpenRouter preflight succeeds immediately before spending;
 4. the model still supports structured outputs, `max_tokens`, and the frozen reasoning conditions;
-5. the selected AkashML endpoint supports every required parameter;
+5. the selected endpoint has a non-negative health status and supports every required parameter;
 6. provider fallbacks remain disabled;
 7. provider data collection is set to `deny`;
 8. the live hard single-pass ceiling is below the study's registered cap;
@@ -56,8 +58,10 @@ Human truth is never loaded by the generation runner. Respondent-level model out
 ## Shared code
 
 - `common/suite_core.py` reconstructs frozen respondents and requests, performs launch readiness checks, and computes static/proxy cost projections.
-- `common/openrouter_preflight.py` queries metadata/key endpoints and live provider pricing. It contains no chat-completions call.
+- `common/openrouter_preflight.py` queries metadata/key endpoints, endpoint health, and live provider pricing. It contains no chat-completions call.
 - `common/paid_runner.py` is the explicitly authorized production inference runner.
+- `common/engineering_micropilot.py` exercises every planned arm on two engineering respondents per study before production. S04/S05 use explicitly discarded proxy personas only.
+- `common/model_candidate_scan.py` is a metadata-only fallback-model scanner and cannot perform inference.
 - `registry.json` freezes models, arm definitions, completion limits, source assets, study caps, and reuse relationships.
 
 ## Reuse rule
