@@ -3,7 +3,7 @@ name: Follow-up S01 S03 full factorial analysis
 on:
   push:
     paths:
-      - 'run/S01_S03_FULL_ANALYSIS_V1'
+      - 'studies/run_triggers/S01_S03_FULL_ANALYSIS_V1'
 
 permissions:
   contents: read
