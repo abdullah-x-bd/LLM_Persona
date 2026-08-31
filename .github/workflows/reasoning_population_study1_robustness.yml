@@ -1,0 +1,67 @@
+name: Reasoning population Study 1 robustness analysis
+
+on:
+  push:
+    paths:
+      - 'reasoning_population_fidelity/run_triggers/STUDY1_ROBUSTNESS_V1'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  robustness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install numpy pandas cryptography
+      - name: Download final Study 1 generation artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/rpf_final /tmp/rpf_robustness
+          mkdir -p /tmp/rpf_final /tmp/rpf_robustness
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9750263228/zip \
+            -o /tmp/rpf_final.zip
+          unzip -q /tmp/rpf_final.zip -d /tmp/rpf_final
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/rpf_final/study1_summary.json'))
+          assert x['requests_schema_valid']==3000 and x['remaining_failures']==0 and x['all_schema_valid'] is True, x
+          print('ROBUSTNESS_SEED_3000_OK')
+          PY
+      - name: Compile robustness analysis
+        run: python -m py_compile reasoning_population_fidelity/src/study1_robustness_analysis.py
+      - name: Run zero-cost robustness analysis
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python reasoning_population_fidelity/src/study1_robustness_analysis.py \
+            --artifact-dir /tmp/rpf_final \
+            --outdir /tmp/rpf_robustness
+      - name: Verify outputs
+        run: |
+          python - <<'PY'
+          import json, os
+          root='/tmp/rpf_robustness'
+          req=['retry_sensitivity.csv','brier_bias_variance_decomposition.csv','brier_decomposition_aggregate.csv','hard_probability_alignment.csv','calibration_bins_ece.csv','top_response_vectors.csv','subgroup_outcome_prevalence.csv','outcome_primary_contrast_bootstrap.csv','robustness_summary.json']
+          for x in req: assert os.path.exists(os.path.join(root,x)),x
+          s=json.load(open(os.path.join(root,'robustness_summary.json')))
+          assert s['bootstrap_reps']==10000 and s['bootstrap_seed']==30082026
+          print('STUDY1_ROBUSTNESS_OUTPUT_GATE_PASS')
+          print(json.dumps(s,indent=2))
+          PY
+      - name: Upload aggregate robustness artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpf-study1-robustness-v1
+          path: /tmp/rpf_robustness/
+          retention-days: 90
