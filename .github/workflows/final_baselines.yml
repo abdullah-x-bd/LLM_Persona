@@ -1,0 +1,59 @@
+name: Final zero-inference statistical baselines
+
+on:
+  push:
+    paths:
+      - 'run/FINAL_BASELINES_V1'
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  baselines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install statistical stack
+        run: pip install cryptography numpy pandas scikit-learn
+      - name: Compile and enforce zero-inference source
+        run: |
+          python -m py_compile analysis_final/baselines.py
+          ! grep -R '/chat/completions' analysis_final/baselines.py
+          echo ZERO_INFERENCE_BASELINE_GATE_PASS
+      - name: Run 10-fold cross-fitted baselines and 10000 bootstrap
+        run: |
+          rm -rf /tmp/final_baselines
+          python analysis_final/baselines.py --outdir /tmp/final_baselines
+      - name: Integrity gate
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          root='/tmp/final_baselines'
+          s=json.load(open(root+'/summary.json'))
+          assert s['status']=='COMPLETE_CROSSFITTED_SUPERVISED_BASELINES',s
+          assert s['respondents']==1000 and s['outer_folds']==10 and s['bootstrap_reps']==10000,s
+          assert s['paid_inference_performed'] is False and s['respondent_level_plaintext_emitted'] is False,s
+          m=pd.read_csv(root+'/baseline_metrics.csv')
+          assert set(m.model)=={'weighted_prevalence','logistic','gradient_boosting','random_forest'},m
+          assert len(m)==4,m
+          b=pd.read_csv(root+'/baseline_bootstrap.csv')
+          assert len(b)==20 and b.bootstrap_reps.eq(10000).all(),b
+          o=pd.read_csv(root+'/baseline_outcome_metrics.csv')
+          assert len(o)==24,o
+          print('FINAL_BASELINE_INTEGRITY_PASS')
+          print(m.to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-crossfitted-baselines-${{ github.run_id }}
+          path: /tmp/final_baselines
+          retention-days: 90
+          if-no-files-found: error
