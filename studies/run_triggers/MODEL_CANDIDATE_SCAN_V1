@@ -1,2 +1,2 @@
 MODEL_CANDIDATE_SCAN_V1
-Metadata only. No chat completions. Find a healthy AkashML model with optional reasoning and structured output after DeepSeek endpoint status became negative.
+Metadata only. No chat completions. Retry 2 after making scanner dependency-free. Find a healthy AkashML model with optional reasoning and structured output after DeepSeek endpoint status became negative.
