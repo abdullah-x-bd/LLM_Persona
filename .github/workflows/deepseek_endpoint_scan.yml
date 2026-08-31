@@ -1,0 +1,36 @@
+name: DeepSeek endpoint scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studies/run_triggers/DEEPSEEK_ENDPOINT_SCAN_V1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Scan DeepSeek serving endpoints without inference
+        run: |
+          mkdir -p /tmp/deepseek_scan
+          python studies/common/deepseek_endpoint_scan.py | tee /tmp/deepseek_scan/endpoints.json
+      - name: Prove scanner cannot infer
+        run: |
+          ! grep -R '/chat/completions' studies/common/deepseek_endpoint_scan.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-endpoint-scan
+          path: /tmp/deepseek_scan/endpoints.json
+          retention-days: 30
