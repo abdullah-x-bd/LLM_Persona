@@ -1,0 +1,30 @@
+name: Multisurvey frozen code schema audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/multisurvey_schema_audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography
+      - name: Audit CMS code schema only
+        run: python src/audit_multisurvey_codes.py --bundle data/encrypted/cms_telecom_2025_codes.enc.b64 --survey cms_telecom_2025
+      - name: Reconstruct PLFS bundle and audit schema only
+        run: |
+          cat data/encrypted/plfs_2023_24_codes_full.part*.b64 | tr -d '\r\n\t ' > /tmp/plfs_codes.b64
+          python src/audit_multisurvey_codes.py --bundle /tmp/plfs_codes.b64 --survey plfs_2023_24
