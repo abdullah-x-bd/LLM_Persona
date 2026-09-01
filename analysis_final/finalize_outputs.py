@@ -91,8 +91,8 @@ def make_cell_metrics(indir: Path, out: Path) -> None:
 
     coalesce("joint_tv", "joint_tv_joint", "joint_tv_cell")
     coalesce("joint_js", "joint_js_joint", "joint_js_cell")
-    coalesce("entropy_bits", "entropy_bits_joint", "hard_pattern_entropy_bits")
-    coalesce("correlation_rmse", "correlation_rmse_joint", "hard_correlation_rmse")
+    coalesce("entropy_bits", "entropy_bits", "entropy_bits_joint", "hard_pattern_entropy_bits")
+    coalesce("correlation_rmse", "correlation_rmse", "correlation_rmse_joint", "hard_correlation_rmse")
 
     drop = [c for c in merged.columns if c.endswith("_cell") or c.endswith("_joint")]
     merged = merged.drop(columns=drop, errors="ignore")
