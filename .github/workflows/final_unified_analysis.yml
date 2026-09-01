@@ -39,7 +39,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/luna /tmp/claude_chunks /tmp/qwen /tmp/s01 /tmp/s03 /tmp/baseline /tmp/harmonized /tmp/final
-
           gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9723896566/zip > /tmp/luna.zip
           unzip -q /tmp/luna.zip -d /tmp/luna
           LUNA_COMBINED=$(find /tmp/luna -name 'results_combined.enc.b64' | head -n1)
@@ -131,7 +130,11 @@ jobs:
               assert len(x)==5 and x[['ci_low','ci_high']].notna().all().all(),x
           cells=pd.read_csv(root/'cell_metrics.csv')
           assert len(cells)==15,cells
-          assert cells[cells.method_class.eq('LLM')]['joint_tv'].notna().all(),cells
+          llm=cells[cells.method_class.eq('LLM')]
+          assert llm['joint_tv'].notna().all(),llm
+          assert llm['joint_js'].notna().all(),llm
+          assert llm['entropy_bits'].notna().all(),llm
+          assert llm['correlation_rmse'].notna().all(),llm
           forbidden=[]
           for p in root.rglob('*'):
               if p.is_file() and (p.suffix in {'.jsonl','.b64','.enc'} or 'raw' in p.name.lower()): forbidden.append(str(p))
