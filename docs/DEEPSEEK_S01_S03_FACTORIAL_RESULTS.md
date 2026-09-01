@@ -123,7 +123,7 @@ There are 553 respondents whose outputs were first-pass valid in all four cells.
 
 The main findings are therefore not artifacts of retry-only respondents.
 
-## Age heterogeneity: a cross-model clue
+## Age heterogeneity
 
 DeepSeek high reasoning has strongly age-dependent effects under rich personas.
 
@@ -139,13 +139,13 @@ DeepSeek high reasoning has strongly age-dependent effects under rich personas.
 
 This is not a simple universally significant young-versus-old reversal: for ages 15-24 the rich-reasoning Brier/probability worsening is uncertain, while ages 25-34 show a statistically clear Brier worsening and a clear hard-prevalence improvement. From age 35 onward population-prevalence effects become beneficial, and the improvements are very large and precise for ages 45+.
 
-The direction is nonetheless notable because the earlier Qwen experiment also showed reasoning worsening probability-population fidelity among younger respondents and improving it among older respondents. This cross-model age pattern should be treated as a secondary/exploratory replication unless it was prospectively specified for DeepSeek.
+The direction is nonetheless notable because the earlier Qwen experiment also showed reasoning worsening probability-population fidelity among younger respondents and improving it among older respondents. This cross-model age pattern is treated as secondary exploratory evidence.
 
-## Interpretation for the umbrella paper
+## Cross-study interpretation
 
-The DeepSeek experiment directly rejects any simple claim that reasoning itself generally damages synthetic population fidelity. With DeepSeek, high reasoning dramatically improves individual Brier, hard accuracy, marginal prevalence fidelity, and joint population structure. This is the opposite of the earlier Qwen population-level result.
+The DeepSeek experiment rejects a simple claim that reasoning itself generally damages synthetic population fidelity. With DeepSeek, high reasoning dramatically improves individual Brier, hard accuracy, marginal prevalence fidelity, and joint population structure. This is the opposite of the earlier Qwen population-level result.
 
-The stronger cross-study conclusion is therefore:
+The stronger cross-study conclusion is:
 
 > Improvements in individual synthetic-person fidelity do not reliably determine population fidelity. The mapping from individual improvement to population improvement is model-, metric-, persona-, and subgroup-dependent.
 
@@ -153,4 +153,4 @@ The result also strengthens a second conclusion:
 
 > Synthetic-population fidelity is not scalar. Brier, log loss, hard accuracy, marginal prevalence, joint-distribution fidelity, and subgroup fidelity can disagree sharply even within the same model and treatment.
 
-The exact paper title `Better synthetic individuals do not make better synthetic populations` is memorable, but it should be interpreted as a non-guarantee rather than an absolute empirical law. A literal universal reading is falsified by the DeepSeek experiment, where better individual Brier coincides with substantially better population fidelity on several endpoints.
+The study title, **Better synthetic individuals do not make better synthetic populations**, expresses a non-guarantee rather than an absolute empirical law. DeepSeek shows that better individual Brier can coincide with substantially better population fidelity on several endpoints.
