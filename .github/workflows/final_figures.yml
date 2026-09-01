@@ -1,0 +1,57 @@
+name: Final R publication figures
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/final_figures.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  figures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::ggplot2
+            any::dplyr
+            any::tidyr
+            any::readr
+            any::scales
+            any::ggrepel
+            any::patchwork
+            any::svglite
+      - name: Download final unified aggregate artifact
+        run: |
+          mkdir -p /tmp/unified /tmp/figures
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9781212067/zip > /tmp/unified.zip
+          unzip -q /tmp/unified.zip -d /tmp/unified
+          test -f /tmp/unified/cell_metrics.csv
+          test -f /tmp/unified/contrasts.csv
+      - name: Generate title-free publication figures
+        run: Rscript analysis_final/figures.R /tmp/unified /tmp/figures
+      - name: Figure integrity gate
+        run: |
+          test "$(find /tmp/figures -name '*.png' | wc -l)" -eq 8
+          test "$(find /tmp/figures -name '*.pdf' | wc -l)" -eq 8
+          test "$(find /tmp/figures -name '*.svg' | wc -l)" -eq 8
+          grep -q fig01_micro_macro /tmp/figures/FIGURE_INDEX.txt
+          ls -lh /tmp/figures
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-publication-figures-r
+          path: /tmp/figures/
+          retention-days: 90
