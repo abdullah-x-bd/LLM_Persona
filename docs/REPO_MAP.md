@@ -1,72 +1,104 @@
-# Canonical repository map
+# Canonical frozen repository map
 
-The repository began as one CAMS persona-validation experiment and grew into a multi-study program. This document is the canonical navigation layer. It is intentionally non-destructive: older scripts and workflows are retained for provenance, while new work should follow the structure below.
+The repository began as one CAMS persona-validation experiment and grew into a multi-study program. The empirical boundary for the current manuscript is now frozen. Historical production, recovery, provider, and prospective-study files are retained for provenance, but they are not a queue of unfinished experiments.
 
 ## Canonical top-level structure
 
 ```text
 LLM_Persona/
-├── README.md                         # project-level entry point
-├── docs/                             # cross-study design, audit, synthesis, roadmap
-├── studies/                          # new confirmatory follow-up suite
-│   ├── registry.json                 # machine-readable frozen study registry
-│   ├── common/                       # shared builder, preflight, paid runner, analysis
-│   └── S01...S05/                    # study-specific documentation
-├── reasoning_population_fidelity/    # completed/continuing Qwen reasoning study
-├── src/                              # original CAMS + multisurvey production infrastructure
-├── data/                             # documentation and encrypted reproducibility bundles
-├── config/                           # original study response schemas/configs
-├── .github/workflows/                # historical and current Actions workflows
-└── run/                              # small trigger/provenance records
+├── README.md                           # project entry point and frozen paper boundary
+├── analysis_final/                    # canonical final zero-inference analysis layer
+│   ├── results/                       # durable aggregate-only manuscript results
+│   ├── figures/                       # final PDF/SVG/600-dpi PNG figure package
+│   ├── baselines.py                   # cross-fitted supervised references
+│   ├── unified_analysis.py            # canonical four-family common metric engine
+│   ├── recover_legacy.py              # transient Luna recovery for CI analysis only
+│   ├── finalize_outputs.py            # aggregate packager and checksums
+│   ├── figures.R                      # title-free R/ggplot figure generation
+│   └── final_qa.py                    # final repo integrity/privacy gate
+├── docs/                              # final synthesis, provenance, audit, historical design
+├── studies/                           # frozen S01-S05 follow-up records
+├── reasoning_population_fidelity/     # completed Qwen reasoning study
+├── src/                               # original CAMS/CMS/PLFS runtime and analysis infrastructure
+├── data/encrypted/                    # encrypted reproducibility assets only
+├── config/                            # original response schemas/configuration
+├── .github/workflows/                 # historical provenance plus final zero-inference workflows
+└── run/                               # historical trigger/provenance records
 ```
+
+## Canonical manuscript layer
+
+For the current paper, start in `analysis_final/`.
+
+The durable source of manuscript numbers is `analysis_final/results/`. The durable source of rendered publication figures is `analysis_final/figures/`. Both directories contain checksum manifests.
+
+The canonical cross-study engine is `analysis_final/unified_analysis.py`. It reconstructs the completed Luna, Claude, Qwen, and DeepSeek evidence under one metric implementation. `analysis_final/final_unified.py` is retained as provenance for an earlier Qwen/DeepSeek-centered synthesis and should not be treated as the final common engine.
 
 ## Evidence families
 
 ### A. Original CAMS persona study
 
-Primary locations: `src/`, `config/`, `docs/research_design.md`, CAMS encrypted bundles in `data/encrypted/`.
+Primary historical locations: `src/`, `config/`, `docs/research_design.md`, and the encrypted CAMS bundles in `data/encrypted/`.
 
-Purpose: thin-versus-rich matched personas and truth-linked CAMS fidelity. This branch contains the original Luna production infrastructure and later Claude robustness work.
+Final manuscript role: Luna thin-versus-rich evidence on 1,000 paired respondents. The authoritative completed raw output is recovered only transiently in the final zero-inference workflow and is represented durably by aggregate files in `analysis_final/results/`.
 
-### B. Multi-model / multi-survey robustness
+### B. Claude persona robustness
 
-Primary locations: `src/multisurvey_*`, `src/analyze_crossmodel.py`, CMS/PLFS workflows, CMS and PLFS encrypted code bundles.
+Primary historical workflow: `cams_claude_analysis.yml` and the completed Claude shard artifacts.
 
-Purpose: model-choice and domain robustness across CMS Telecom 2025 and PLFS 2023–24. The current repository does not contain separate CMS/PLFS truth bundles, so these branches should not be described as truth-linked fidelity validations unless those truth assets are restored.
+Final manuscript role: thin-versus-rich robustness evidence on the frozen 250-respondent subset. The final common engine now recomputes its metrics and paired 10,000-bootstrap contrasts rather than carrying only legacy point estimates.
 
-### C. Reasoning population fidelity
+### C. Qwen reasoning population fidelity
 
-Primary location: `reasoning_population_fidelity/`.
+Primary historical location: `reasoning_population_fidelity/`.
 
-Purpose: paired reasoning-off/low/medium CAMS experiment with Qwen3.8-27B, truth-separated generation, frozen analysis plan, production recovery, final analysis, and robustness diagnostics.
+Final manuscript role: completed paired off/low/medium reasoning experiment on 1,000 CAMS respondents, including the frozen analysis plan, production recovery, final analysis, robustness diagnostics, and the common-engine medium-minus-off comparison.
 
-### D. Confirmatory follow-up suite
+### D. DeepSeek follow-up studies
 
-Primary location: `studies/`.
+Primary location: `studies/` and `docs/DEEPSEEK_S01_S03_FACTORIAL_RESULTS.md`.
 
-Purpose: five post-synthesis experiments designed to test whether the emerging micro/macro fidelity result survives model-family, truncation, persona-information, domain, and untouched-holdout challenges.
+Final manuscript role:
+
+- S01: complete rich/off-versus-rich/high reasoning replication on 1,000 respondents.
+- S03: complete thin/rich × off/high factorial, reusing the exact S01 rich cells.
+- S02: archived unrun prospective design.
+- S04: scientifically blocked and excluded because no matched PLFS truth asset is available.
+- S05: archived unrun prospective design.
+
+The `studies/` directory is therefore a frozen provenance layer for the current manuscript, not a current launch plan.
+
+### E. CMS and PLFS robustness branches
+
+Primary locations: `src/multisurvey_*`, `src/analyze_crossmodel.py`, and historical CMS/PLFS workflows.
+
+These branches contain useful synthetic-output and engineering evidence, but the current repository does not contain the matched truth assets required for truth-linked accuracy validation. They must not be promoted into the current paper's truth-linked fidelity evidence.
 
 ## Workflow policy
 
-The `.github/workflows/` directory contains many historical repair and recovery workflows because production inference required checkpoint-safe recovery. They are retained as a provenance record. A workflow filename existing in that directory does not mean it is the current canonical launch path.
+Most files under `.github/workflows/` are historical production, repair, recovery, or provider-engineering records. Their presence does not mean they should be rerun.
 
-For new work:
+The current manuscript-stage workflows are zero-inference only:
 
-- use the study suite workflows for S01–S05;
-- use existing reasoning-population workflows only for the original Qwen study and its artifacts;
-- do not revive retired Gemini repair workflows without a new scientific justification;
-- never rerun a whole paid workflow merely to recover a small missing subset when an encrypted checkpoint exists.
+- `final_baselines.yml`
+- `final_unified_analysis.yml`
+- `final_figures.yml`
+- `final_qa.yml` once the final repository gate is installed
+
+No additional paid inference is part of the current manuscript plan. A future reviewer-driven extension would require a new, explicit scientific justification and a separately frozen request set.
 
 ## Data policy
 
-Public Git history may contain encrypted reproducibility bundles, never API keys or plaintext respondent rows. CAMS has separate encrypted persona-code and truth bundles. CMS/PLFS currently expose persona-code bundles only. Generation must not decrypt truth. Analysis may decrypt truth only after model outputs are frozen.
+Public Git history may contain encrypted reproducibility bundles, never API keys or final respondent-level plaintext outputs. Generation and truth remain separated. Completed respondent-level generation outputs are decrypted only transiently during authorized post-generation analysis. The durable final package under `analysis_final/results/` contains aggregate statistics only.
+
+`analysis_final/figures/` is generated only from the committed aggregate result package and never reads respondent-level data.
 
 ## Documentation hierarchy
 
-1. `README.md` gives the current whole-project status and headline.
-2. `docs/REPO_MAP.md` explains where everything lives.
-3. `docs/REPO_WIDE_RESULTS_SYNTHESIS.md` records the current empirical synthesis.
-4. `docs/FOLLOWUP_EXPERIMENT_PLAN.md` records the five new experiments and cost logic.
-5. `studies/README.md` explains how to operate the confirmatory suite.
-6. Study-specific READMEs record the exact scientific purpose and launch blocks.
-7. Historical design documents remain authoritative for the study they originally froze, but do not override later study-specific frozen plans.
+1. `README.md` states the frozen paper boundary and headline results.
+2. `docs/PRE_MANUSCRIPT_AUDIT.md` records final completion and remaining manuscript-only work.
+3. `docs/REPO_WIDE_RESULTS_SYNTHESIS.md` is the final empirical synthesis.
+4. `docs/FINAL_PROVENANCE.md` records authoritative runs, artifacts, seeds, privacy guarantees, and final packages.
+5. `analysis_final/README.md` explains the final analysis layer.
+6. `studies/registry.json` is the machine-readable frozen study-status record.
+7. Historical plans and design documents remain authoritative for the study state they originally froze, but do not override the final manuscript boundary above.
