@@ -13,6 +13,24 @@ Recommended release title: **v1.0.0 — Frozen synthetic-population fidelity res
 - Confirm the frozen study registry still marks S01 and S03 complete, S02 and S05 archived unrun, and S04 scientifically blocked.
 - Decide and add an explicit reuse license before publishing the release. Do not infer a license merely from public repository visibility.
 
+## Recommended GitHub “About” metadata
+
+Repository description:
+
+> Multi-model audit of LLM synthetic-population fidelity against Government of India CAMS survey respondents.
+
+Recommended topics:
+
+- `large-language-models`
+- `synthetic-respondents`
+- `synthetic-populations`
+- `computational-social-science`
+- `survey-methodology`
+- `ai-evaluation`
+- `reproducibility`
+
+Leave the project website blank until there is a stable article, DOI, or project page worth linking.
+
 ## Create the GitHub release
 
 1. Open **Releases → Draft a new release**.
