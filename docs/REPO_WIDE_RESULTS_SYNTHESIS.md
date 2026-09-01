@@ -1,4 +1,4 @@
-# Final repo-wide empirical synthesis
+# Empirical synthesis
 
 ## Central result
 
@@ -12,7 +12,7 @@ This is a non-guarantee, not a universal claim that better individual prediction
 
 ## Final evidence set
 
-All values below come from the final common-engine, zero-inference synthesis in `analysis_final/results/`. Original frozen analyses remain authoritative for their preregistered primary claims, while this layer provides a common metric implementation for cross-study comparison.
+All values below come from the final common-engine, zero-inference synthesis in `analysis_final/results/`. Original frozen analyses remain authoritative for their prospectively defined primary claims, while this layer provides a common metric implementation for cross-study comparison.
 
 | Evidence family | Model | Design | Respondents | Final role |
 |---|---|---|---:|---|
@@ -23,11 +23,11 @@ All values below come from the final common-engine, zero-inference synthesis in 
 | S03 factorial | DeepSeek V4 Flash 0731 | thin/rich × off/high | 1,000 | truth-linked factorial mechanism test |
 | Supervised references | prevalence, logistic, gradient boosting, random forest | 10-fold cross-fitted | 1,000 | supervised comparison only |
 
-CMS and PLFS synthetic-output branches remain useful as model-instability and engineering evidence. They are excluded from truth-linked accuracy claims because the repository does not contain the matched truth assets needed for the final paper.
+CMS and PLFS synthetic-output branches remain useful as model-instability and engineering evidence. They are excluded from truth-linked accuracy claims because the repository does not contain the matched truth assets required for truth-linked accuracy validation.
 
 ## One common analysis engine
 
-The final synthesis reconstructs all 11 completed LLM cells from the authoritative completed outputs and evaluates them against the same CAMS truth infrastructure. Luna and Claude are no longer represented only by carried-forward point estimates in the canonical package.
+The final synthesis reconstructs all 11 completed LLM cells from the authoritative completed outputs and evaluates them against the same CAMS truth infrastructure. Luna and Claude are recomputed under the same common metric engine used for Qwen and DeepSeek.
 
 The harmonized analysis uses:
 
@@ -54,7 +54,7 @@ The final harmonization workflow performs no paid LLM inference.
 
 Richer Luna personas clearly improve respondent-level probabilistic prediction. The corresponding change in probability-prevalence MAE is uncertain, while hard categorical population reconstruction becomes significantly worse.
 
-This is the cleanest within-model example of the paper's central non-guarantee: a strong individual-level improvement coexists with a clear deterioration in one population estimand.
+This is the clearest within-model example of the central non-guarantee: a strong individual-level improvement coexists with a clear deterioration in one population estimand.
 
 ### Claude, rich minus thin
 
@@ -179,7 +179,7 @@ For Qwen, reasoning worsens probability-prevalence fidelity among respondents ag
 
 For DeepSeek rich personas, high reasoning also performs poorly for younger respondents on some individual or probability endpoints, while population-prevalence effects become increasingly beneficial from age 35 onward and are very large for ages 45+.
 
-This cross-model age pattern is a useful mechanism hypothesis, not a license to convert exploratory subgroup findings into a new primary claim.
+This cross-model age pattern is treated as exploratory mechanism evidence rather than a primary claim.
 
 ## Supervised reference models
 
@@ -224,14 +224,14 @@ There is no single universally best synthetic-population model without first spe
 
 ### Excluded from truth-linked accuracy claims
 
-- CMS and PLFS branches without matched truth assets in the current repository;
+- CMS and PLFS branches without matched truth assets;
 - Gemini/provider-failure branches;
 - S02 and S05, which remain unrun prospective designs;
 - S04, which is scientifically blocked without matched PLFS truth.
 
 ## Final interpretation
 
-The repository supports a multi-axis view of synthetic-population validation. Persona information, inference-time reasoning, and model identity alter not only how much error a synthetic respondent makes, but the structure of that error.
+The evidence supports a multi-axis view of synthetic-population validation. Persona information, inference-time reasoning, and model identity alter not only how much error a synthetic respondent makes, but the structure of that error.
 
 A system can improve individual Brier while worsening population prevalence. It can improve one population representation while worsening another. It can recover marginals while distorting the joint distribution. It can improve average probability error while creating catastrophic tail errors. The direction of these trade-offs can reverse across model families.
 
