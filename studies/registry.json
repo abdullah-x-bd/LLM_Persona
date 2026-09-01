@@ -1,7 +1,7 @@
 {
   "suite_version": 4,
   "created_utc": "2026-08-31",
-  "frozen_for_current_manuscript_utc": "2026-09-01",
+  "frozen_for_v1_0_0_utc": "2026-09-01",
   "privacy": {
     "allow_fallbacks": false,
     "data_collection": "deny",
@@ -26,11 +26,11 @@
     },
     "S02_length_safe_reasoning": {
       "title": "Length-safe Qwen reasoning replication",
-      "status": "ARCHIVED_UNRUN_NOT_REQUIRED_FOR_CURRENT_MANUSCRIPT",
+      "status": "ARCHIVED_UNRUN",
       "source": "cams_existing_1000",
       "respondents": 1000,
       "arms": ["rich_off", "rich_medium"],
-      "note": "Prospective design retained for provenance. No current-paper launch planned."
+      "note": "Prospective design retained for provenance and excluded from version 1.0.0 evidence."
     },
     "S03_persona_reasoning_factorial": {
       "title": "Persona richness by reasoning factorial",
@@ -46,18 +46,18 @@
     },
     "S04_plfs_reasoning_replication": {
       "title": "Cross-domain PLFS reasoning replication",
-      "status": "SCIENTIFICALLY_BLOCKED_EXCLUDED_FROM_CURRENT_MANUSCRIPT",
+      "status": "SCIENTIFICALLY_BLOCKED_EXCLUDED_FROM_V1_0_0",
       "source": "plfs_existing_1500",
       "respondents": 1000,
       "requires_truth": "data/encrypted/plfs_2023_24_truth.enc.b64",
-      "note": "No truth bundle is present. Engineering proxies are not scientific data."
+      "note": "No matched PLFS truth bundle is present. Engineering proxies are not treated as truth-linked scientific evidence."
     },
     "S05_fresh_holdout_confirmation": {
       "title": "Fresh preregistered holdout confirmation",
-      "status": "ARCHIVED_UNRUN_NOT_REQUIRED_FOR_CURRENT_MANUSCRIPT",
+      "status": "ARCHIVED_UNRUN",
       "source": "cams_fresh_holdout_v1",
       "respondents": 500,
-      "note": "Prospective extension retained for provenance. No current-paper launch planned."
+      "note": "Prospective extension retained for provenance and excluded from version 1.0.0 evidence."
     }
   }
 }
