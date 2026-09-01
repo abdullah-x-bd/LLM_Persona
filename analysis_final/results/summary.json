@@ -1,12 +1,12 @@
 {
-  "analysis_commit_sha": "19623971ee288ad7c57b3d409887f0e7d4432d53",
+  "analysis_commit_sha": "cca2318ae59edb607f6050f2093ac4698a094cf6",
   "bootstrap_reps": 10000,
   "bootstrap_seed": 3108202691,
   "canonical_analysis": "analysis_final/unified_analysis.py",
   "claude_subset_respondents": 250,
   "durable_outputs_are_aggregate_only": true,
   "harmonization_note": "Cross-study metrics are recomputed with one common metric implementation and 1e-6 log-loss clipping. Frozen study-specific analyses remain authoritative for their preregistered primary results.",
-  "harmonization_workflow_run_id": 33459342665,
+  "harmonization_workflow_run_id": 33459614973,
   "human_truth_respondents": 1000,
   "integrity": {
     "claude": {
