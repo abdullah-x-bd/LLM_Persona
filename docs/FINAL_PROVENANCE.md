@@ -1,26 +1,26 @@
-# Final manuscript provenance
+# Research artifact provenance
 
-This document records the authoritative inputs and final zero-inference analysis chain for the frozen manuscript evidence in this repository.
+This document records the authoritative inputs and zero-inference analysis chain for version 1.0.0 of the research artifact.
 
-The final durable result and figure packages are committed under `analysis_final/results/` and `analysis_final/figures/`. Their `MANIFEST.json` files contain file-level SHA-256 checksums and are the machine-readable source of truth for package integrity.
+The durable result and figure packages are committed under `analysis_final/results/` and `analysis_final/figures/`. Their `MANIFEST.json` files contain file-level SHA-256 checksums and provide the machine-readable integrity record for the published package.
 
-## Final analysis identity
+## Analysis identity
 
-| Item | Final value |
+| Item | Value |
 |---|---|
 | Canonical common engine | `analysis_final/unified_analysis.py` |
-| Final harmonization workflow | `.github/workflows/final_unified_analysis.yml` |
-| Final harmonization run | `33459614973` |
+| Harmonization workflow | `.github/workflows/final_unified_analysis.yml` |
+| Harmonization run | `33459614973` |
 | Analysis source commit recorded by final package | `cca2318ae59edb607f6050f2093ac4698a094cf6` |
 | Bootstrap replicates | 10,000 |
 | Bootstrap seed | `3108202691` |
 | LLM cells in common engine | 11 |
 | CAMS truth respondents | 1,000 |
-| Claude frozen subset | 250 respondents |
+| Claude subset | 250 respondents |
 | Paid inference in final harmonization | none |
 | Respondent-level plaintext in durable result package | none |
 
-The final harmonization run passed the zero-inference source gate, authoritative-artifact recovery gate, four-family common-engine analysis, aggregate privacy/integrity gate, result-package commit, and aggregate artifact upload.
+The harmonization run passed the zero-inference source gate, authoritative-artifact recovery gate, four-family common-engine analysis, aggregate privacy/integrity gate, result-package commit, and aggregate artifact upload.
 
 ## Authoritative completed LLM inputs
 
@@ -33,7 +33,7 @@ The final harmonization run passed the zero-inference source gate, authoritative
 - Conditions: thin, rich
 - Completed respondent-condition outputs: 2,000
 
-The final workflow decrypts this already-completed encrypted aggregate only into transient CI storage. The decrypted JSONL is neither committed nor uploaded as a final artifact.
+The harmonization workflow decrypts this completed encrypted aggregate only into transient CI storage. The decrypted JSONL is neither committed nor uploaded as a durable artifact.
 
 ### Claude
 
@@ -45,12 +45,12 @@ The final workflow decrypts this already-completed encrypted aggregate only into
 - Conditions: thin, rich
 - Completed respondent-condition outputs: 500
 
-The final workflow reconstructs the 20 encrypted shards transiently and verifies 250 distinct respondents and 500 distinct respondent-condition pairs before analysis.
+The harmonization workflow reconstructs the 20 encrypted shards transiently and verifies 250 distinct respondents and 500 distinct respondent-condition pairs before analysis.
 
 ### Qwen
 
 - Model: `qwen/qwen3.8-27b`
-- Authoritative final encrypted artifact used by the final common engine: `9750263228`
+- Authoritative encrypted artifact used by the common engine: `9750263228`
 - Respondents: 1,000
 - Conditions: off, low, medium
 - Completed LLM cells: 3
@@ -60,23 +60,23 @@ The original Qwen production, recovery, frozen analysis plan, and robustness his
 ### DeepSeek S01
 
 - Model: `deepseek/deepseek-v4-flash-0731`
-- Final provider: OpenInference FP8
+- Provider: OpenInference FP8
 - Production/recovery run recorded in the frozen study registry: `33406819430`
-- Authoritative final artifact: `9763493454`
+- Authoritative artifact: `9763493454`
 - Respondents: 1,000
 - Conditions: rich/off, rich/high
 
 ### DeepSeek S03
 
 - Model: `deepseek/deepseek-v4-flash-0731`
-- Final provider: OpenInference FP8
+- Provider: OpenInference FP8
 - Production/recovery run recorded in the frozen study registry: `33406819430`
-- Authoritative final artifact: `9765135867`
+- Authoritative artifact: `9765135867`
 - Respondents: 1,000
 - New conditions: thin/off, thin/high
 - Reused S01 conditions: rich/off, rich/high
 
-S01 and S03 generation used provider fallback disabled, provider data collection set to `deny`, and excluded CAMS truth from generation. CAMS truth enters only after the generation outputs are frozen.
+S01 and S03 generation used provider fallback disabled, provider data collection set to `deny`, and excluded CAMS truth from generation. CAMS truth enters only after generation outputs are frozen.
 
 ## Supervised reference provenance
 
@@ -94,18 +94,18 @@ The supervised comparators are outcome-trained cross-fitted references. They are
 
 ## Four-family harmonization
 
-The final common engine evaluates:
+The common engine evaluates:
 
 - Luna thin and rich;
 - Claude thin and rich;
 - Qwen off, low, and medium;
 - DeepSeek thin/off, thin/high, rich/off, and rich/high.
 
-For every paired primary contrast supported by respondent-level completed outputs, the final common engine runs 10,000 paired respondent bootstrap replicates. This includes Luna and Claude, which are no longer represented only by historical point estimates in the canonical manuscript package.
+For paired contrasts supported by respondent-level completed outputs, the common engine runs 10,000 paired respondent bootstrap replicates. Luna and Claude are recomputed under the same implementation used for Qwen and DeepSeek rather than represented only by historical point estimates.
 
-The common engine writes only aggregate analysis tables. `analysis_final/finalize_outputs.py` then converts those outputs into the durable publication package and computes file-level SHA-256 checksums.
+The common engine writes aggregate analysis tables. `analysis_final/finalize_outputs.py` converts those outputs into the durable package and computes file-level SHA-256 checksums.
 
-## Final result package
+## Result package
 
 Location: `analysis_final/results/`
 
@@ -126,15 +126,15 @@ The package contains:
 - `summary.json`
 - `MANIFEST.json`
 
-The final `summary.json` records status `MANUSCRIPT_READY_FOUR_FAMILY_ZERO_INFERENCE_SYNTHESIS`, final run `33459614973`, common-engine sample integrity, the bootstrap configuration, the source provenance above, and explicit certification that no paid inference occurred and no respondent-level plaintext was emitted into the durable result package.
+`summary.json` records status `MANUSCRIPT_READY_FOUR_FAMILY_ZERO_INFERENCE_SYNTHESIS`, final run `33459614973`, sample integrity, bootstrap configuration, source provenance, and explicit certification that no paid inference occurred and no respondent-level plaintext was emitted into the durable result package.
 
-`analysis_final/results/MANIFEST.json` is authoritative for the exact SHA-256 and byte size of every durable result file.
+`analysis_final/results/MANIFEST.json` records the exact SHA-256 and byte size of every durable result file.
 
-## Final figure package
+## Figure package
 
 - Workflow: `.github/workflows/final_figures.yml`
-- Successful final run: `33459804925`
-- Figure source commit recorded by the figure package: `e4f0002ab885b6653ea97993a0d36c94a1f32772`
+- Successful run: `33459804925`
+- Figure source commit recorded by the package: `e4f0002ab885b6653ea97993a0d36c94a1f32772`
 - Input: committed `analysis_final/results/` aggregate package only
 - Figures: 8
 - Formats per figure: PDF, SVG, PNG
@@ -149,31 +149,29 @@ The figure manifest links the figure package to the exact SHA-256 of the source 
 
 ## Encryption-key note
 
-Some historical encrypted result bundles derive their decryption key from the repository's `OPENROUTER_API_KEY` secret because that was the encryption convention used during production. In the final zero-inference workflow, that secret is used only to decrypt already-completed historical outputs. The final analysis source is explicitly gated against inference endpoints and does not submit any new LLM requests.
+Some historical encrypted result bundles derive their decryption key from the repository's `OPENROUTER_API_KEY` secret because that was the encryption convention used during production. In the zero-inference harmonization workflow, that secret is used only to decrypt completed historical outputs. The final analysis source is explicitly gated against inference endpoints and does not submit new LLM requests.
 
 No API secret is committed to the repository.
 
 ## Truth separation and data firewall
 
-The final manuscript chain preserves the following boundary:
+Version 1.0.0 preserves the following boundary:
 
 1. model generation was completed without access to CAMS outcome truth;
 2. completed respondent-level model outputs were frozen and encrypted;
 3. truth is joined only during post-generation analysis;
 4. respondent-level plaintext exists only transiently inside CI where needed for reanalysis;
-5. durable repository outputs are aggregate statistics and rendered figures only;
-6. final aggregate and figure packages are checksum-manifested.
-
-This is the intended reproducibility boundary for the current paper.
+5. durable repository outputs are aggregate statistics and rendered figures;
+6. aggregate and figure packages are checksum-manifested.
 
 ## Frozen study status
 
 The machine-readable study boundary is `studies/registry.json`:
 
 - S01: complete and analyzed;
-- S02: archived unrun, not required for the current manuscript;
+- S02: archived unrun;
 - S03: complete and analyzed;
 - S04: scientifically blocked and excluded because matched PLFS truth is unavailable;
-- S05: archived unrun, not required for the current manuscript.
+- S05: archived unrun.
 
-No additional paid inference is part of the frozen current-paper evidence package. A future reviewer-driven extension would constitute new work and should receive a new explicit provenance record rather than modifying this frozen chain silently.
+Version 1.0.0 contains no additional paid inference beyond the completed experimental evidence described above. Later scientific extensions are versioned separately with their own provenance records.
