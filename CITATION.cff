@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the tagged research-artifact release. The published article citation will be added when a final bibliographic record is available."
+title: "Better synthetic individuals do not make better synthetic populations: research artifact"
+type: software
+version: 1.0.0
+authors:
+  - family-names: "X"
+    given-names: "Abdullah"
+    affiliation: "Project Aware"
+repository-code: "https://github.com/abdullah-x-bd/LLM_Persona"
+url: "https://github.com/abdullah-x-bd/LLM_Persona"
+abstract: >-
+  Frozen research artifact for a multi-study audit of large-language-model
+  population simulation against Government of India CAMS survey respondents.
+  The repository contains the canonical four-family analysis engine,
+  aggregate-only final result tables, publication figures, supervised
+  reference models, study provenance, and integrity checks. The central
+  result is that improvements in individual-level synthetic-respondent
+  fidelity do not guarantee improvements in population-level fidelity.
+keywords:
+  - synthetic respondents
+  - synthetic populations
+  - large language models
+  - computational social science
+  - survey simulation
+  - population fidelity
+  - AI evaluation
