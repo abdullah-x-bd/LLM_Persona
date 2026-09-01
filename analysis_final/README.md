@@ -4,30 +4,71 @@ This directory is the canonical pre-manuscript analysis layer for **Better synth
 
 No file in this layer performs paid LLM inference.
 
-## Components
+## Canonical components
 
-- `baselines.py` fits supervised reference models with 10-fold out-of-fold prediction, internal tuning, survey weights, and 10,000 respondent bootstraps.
-- `final_unified.py` is the canonical cross-study synthesis. It decrypts already-completed Qwen and DeepSeek outputs, joins withheld CAMS truth only after generation, recomputes harmonized metrics, and estimates paired interactions.
-- `unified_analysis.py` contains reusable harmonization, bootstrap, subgroup, joint-distribution, and probability-tail utilities.
-- `figures.R` produces the publication figure suite in PDF, SVG, and 450-dpi PNG.
+- `baselines.py` fits the final supervised reference models with 10-fold out-of-fold prediction, internal tuning, survey weights, and 10,000 respondent bootstraps.
+- `unified_analysis.py` is the canonical four-family cross-study metric engine. It evaluates completed Luna, Claude, Qwen, and DeepSeek outputs under one implementation and estimates paired contrasts, interactions, subgroup effects, joint-distribution metrics, and probability-tail diagnostics.
+- `recover_legacy.py` decrypts the already-completed Luna aggregate transiently inside CI so the original Luna outputs can enter the common engine. The plaintext is never committed or uploaded as a final artifact.
+- `finalize_outputs.py` converts the common-engine output into the durable aggregate-only publication package and generates SHA-256 provenance.
+- `figures.R` produces the final title-free publication figure suite in PDF, SVG, and 600-dpi PNG.
+- `final_qa.py` is the final repository integrity, privacy, documentation, result, and figure gate.
+- `final_unified.py` is retained as historical provenance for the earlier Qwen/DeepSeek-centered synthesis. It is no longer the canonical final cross-study engine.
+
+## Canonical outputs
+
+`results/` is the durable publication-safe aggregate result package. It contains:
+
+- `cell_metrics.csv`
+- `contrasts.csv`
+- `evidence_matrix.csv`
+- `joint_metrics.csv`
+- `outcome_metrics.csv`
+- `outcome_effects.csv`
+- `pattern_distribution.csv`
+- `subgroup_metrics.csv`
+- `age_reasoning_effects.csv`
+- `probability_tail.csv`
+- `summary.json`
+- `MANIFEST.json`
+
+The final result package contains aggregate statistics only. It contains no respondent-level plaintext and no raw generation outputs.
+
+`figures/` is the durable final figure package. It contains eight figures, each in PDF, SVG, and 600-dpi PNG, plus a figure index and checksum manifest.
+
+## Four-family harmonization
+
+The canonical synthesis now re-reads the authoritative completed outputs for all four LLM families:
+
+- Luna: 1,000 respondents in thin and rich conditions;
+- Claude: 250 respondents in thin and rich conditions;
+- Qwen: 1,000 respondents in off, low, and medium reasoning conditions;
+- DeepSeek: 1,000 respondents in thin/off, thin/high, rich/off, and rich/high cells.
+
+All primary cross-study contrasts use 10,000 paired respondent bootstrap replicates where paired respondent-level outputs are available. Luna and Claude are therefore no longer represented only by carried-forward point estimates in the final package.
+
+The original study-specific frozen analyses remain authoritative for their preregistered primary claims. The common-engine layer is authoritative for the final cross-study comparisons and figures.
 
 ## Supervised comparators
 
-The final baseline set is:
+The final supervised reference set is:
 
 1. survey-weighted prevalence predictor;
-2. tuned regularized logistic regression;
-3. tuned gradient boosting;
+2. logistic regression;
+3. gradient boosting;
 4. random forest.
 
-These are **cross-fitted supervised comparators**. They use outcome-labeled training respondents within each fold, so they are not information-regime-equivalent to zero-shot LLM synthetic respondents. Their role is to show what ordinary tabular prediction can achieve on the same covariates and held-out respondents.
+These are **cross-fitted supervised comparators**. They use outcome-labeled training respondents within each fold, so they are not information-regime-equivalent to zero-shot LLM synthetic respondents. Their role is to provide reference points on the same held-out respondents and to demonstrate that different validation objectives can rank methods differently.
 
-## Frozen legacy metrics
+## Data firewall
 
-Luna and Claude persona-study point estimates are carried from their original frozen truth-linked analyses. Qwen and DeepSeek are re-read from the authoritative encrypted production artifacts and recomputed under one harmonized implementation. Study-specific preregistered analyses remain authoritative for their original primary claims.
+Historical respondent-level generation outputs remain encrypted in their original Actions artifacts. The final harmonization workflow decrypts completed outputs only transiently in CI, after generation, and emits only aggregate files. CAMS truth is joined only during analysis. No final workflow calls an LLM inference endpoint.
 
-## Outputs
+For manuscript preparation, begin with:
 
-The final unified artifact contains cell metrics, paired contrasts, outcome effects, subgroup metrics, age-specific reasoning effects, joint population structure, response-pattern distributions, probability-tail diagnostics, and the compact evidence matrix.
-
-The figure workflow consumes only those aggregate files. It does not access respondent-level data or any API inference endpoint.
+- `results/summary.json`
+- `results/contrasts.csv`
+- `results/MANIFEST.json`
+- `figures/`
+- `../docs/REPO_WIDE_RESULTS_SYNTHESIS.md`
+- `../docs/PRE_MANUSCRIPT_AUDIT.md`
+- `../docs/FINAL_PROVENANCE.md`
