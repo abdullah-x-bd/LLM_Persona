@@ -1,36 +1,19 @@
 # S01 Second-model reasoning replication
 
-**Question:** Does the reasoning-induced micro/macro divergence replicate outside Qwen?
+**Status: COMPLETE AND ANALYZED.**
 
-## Frozen design
+Population: 1,000 frozen CAMS respondents. Model: `deepseek/deepseek-v4-flash-0731`. Final production provider: **OpenInference FP8**. Fallbacks were disabled, provider data collection was set to `deny`, and human truth was not loaded during generation.
 
-Population: the existing 1,000 frozen CAMS respondents.
+Paired arms were `rich_off` and `rich_high`. The final production artifact contains 1,000 valid responses in each arm and is reused exactly by S03.
 
-Model: `deepseek/deepseek-v4-flash-0731`.
+Primary rich high-minus-off results from the 10,000 paired bootstrap:
 
-Provider: AkashML only, currently pinned to `akashml/fp8`, with fallbacks disabled and provider data collection set to `deny`.
+- individual Brier: **-0.01796**, 95% CI [-0.03101, -0.00490];
+- probability-prevalence MAE: **-5.76 pp**, 95% CI [-8.31, -3.19];
+- hard prevalence MAE: **-16.67 pp**, 95% CI [-18.17, -13.92];
+- hard accuracy: **+4.37 pp**, 95% CI [+2.64, +6.13];
+- log loss worsened because high reasoning created a larger tail of extreme wrong probabilities.
 
-Persona: rich CAMS persona.
+Production run: `33406819430`. Final S01 artifact: `9763493454`.
 
-Paired arms:
-
-- `rich_off`: reasoning disabled, maximum completion 256 tokens.
-- `rich_high`: DeepSeek high reasoning, maximum completion 1,800 tokens.
-
-DeepSeek uses `high` rather than `medium` because the zero-cost OpenRouter gate verified that its supported reasoning efforts are `low`, `high`, and `max`. The earlier candidate `openai/gpt-oss-120b` was rejected before paid inference because current OpenRouter metadata marks reasoning as mandatory, invalidating a genuine off arm.
-
-## Confirmatory outcomes
-
-Primary outcomes are survey-weighted individual Brier and probability-prevalence MAE. Key secondary outcomes are hard prevalence MAE, hard accuracy, log loss, calibration-in-the-large, joint response entropy, TV/JS distance from the human joint distribution, and prespecified subgroup errors.
-
-Primary contrast: `rich_high - rich_off`, paired by respondent.
-
-Human truth is never loaded during generation. The existing encrypted CAMS truth bundle is loaded only by post-generation aggregate analysis.
-
-## Cost and readiness
-
-The validated live AkashML hard single-pass ceiling on 31 August 2026 was **$0.452429** for all 2,000 requests. The registered study cap is **$0.90**. The hard ceiling assumes every request consumes its full completion allowance and is therefore not an expected-spend forecast.
-
-Zero-cost static and live preflight passed. A paid launch still requires the manual workflow confirmation and a fresh live preflight immediately before inference.
-
-The two rich arms generated here are reused exactly by S03 and must not be regenerated for the factorial study.
+The AkashML endpoint used during engineering was abandoned before final production because it rate-limited concurrent DeepSeek requests. Provider selection was an operational pre-outcome change; the scientific arms and response schema were unchanged.
