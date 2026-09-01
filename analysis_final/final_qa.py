@@ -40,11 +40,14 @@ FIGURE_NAMES = [
 
 REQUIRED_DOCS = [
     "README.md",
+    "CITATION.cff",
     "analysis_final/README.md",
     "docs/PRE_MANUSCRIPT_AUDIT.md",
     "docs/FINAL_PROVENANCE.md",
     "docs/REPO_MAP.md",
     "docs/REPO_WIDE_RESULTS_SYNTHESIS.md",
+    "docs/RELEASE_NOTES_v1.0.0.md",
+    "docs/RELEASE_CHECKLIST.md",
     "studies/README.md",
     "studies/registry.json",
 ]
@@ -142,9 +145,17 @@ def check_docs() -> None:
     assert studies["S05_fresh_holdout_confirmation"]["status"].startswith("ARCHIVED_UNRUN")
 
     root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "CITATION.cff" in root_readme
     assert "docs/PRE_MANUSCRIPT_AUDIT.md" in root_readme
+    assert "docs/RELEASE_NOTES_v1.0.0.md" in root_readme
+    assert "docs/RELEASE_CHECKLIST.md" in root_readme
     assert "analysis_final/results" in root_readme
     assert "analysis_final/figures" in root_readme
+
+    citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    assert "cff-version: 1.2.0" in citation
+    assert "version: 1.0.0" in citation
+    assert "repository-code:" in citation
 
 
 def check_privacy() -> None:
