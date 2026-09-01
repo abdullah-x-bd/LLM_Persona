@@ -1,131 +1,238 @@
-# Repo-wide empirical synthesis
+# Final repo-wide empirical synthesis
 
 ## Central result
 
-The strongest result across the completed truth-linked CAMS studies is that **better synthetic individuals do not necessarily make better synthetic populations**.
+The completed truth-linked CAMS program supports a precise methodological conclusion:
 
-Synthetic-population fidelity is not a scalar property. At minimum, this repository separates:
+**Improving synthetic individuals does not guarantee improving synthetic populations.**
 
-1. individual probabilistic fidelity, measured by Brier score and log loss;
-2. marginal probability-prevalence fidelity, measured by the error in weighted mean predicted probability;
-3. categorical population fidelity, measured by hard-response prevalence error and hard accuracy;
-4. joint-distribution fidelity, measured by response-vector diversity, TV/JS distance, and correlation structure;
-5. subgroup fidelity, measured by reproduction of empirical demographic gaps.
+Individual predictive fidelity and population fidelity are distinct validation targets. Across Luna, Claude, Qwen, and DeepSeek, interventions that improve respondent-level Brier score or log loss can improve, worsen, or leave uncertain the fidelity of marginal prevalence, categorical population totals, joint response structure, and subgroup patterns. The direction depends on model family, intervention, metric, and subgroup.
 
-Interventions that improve one of these dimensions can worsen another.
+This is a non-guarantee, not a universal claim that better individual prediction must damage population reconstruction. DeepSeek is an important counterexample: high reasoning improves individual Brier and several population-level endpoints while simultaneously worsening log loss through a heavier tail of highly confident errors.
 
-## Evidence matrix
+## Final evidence set
 
-| Survey / experiment | Model | Intervention | Respondents | Truth-linked in current repo | Main result |
-|---|---|---|---:|---|---|
-| CAMS primary persona study | GPT-5.6 Luna | rich vs thin persona | 1,000 | Yes | Rich improves Brier and slightly improves probability MAE, but worsens hard prevalence MAE. |
-| CAMS cross-model persona robustness | Claude Sonnet 5 | rich vs thin persona | 250 | Yes | Rich improves Brier and hard prevalence MAE, but worsens probability-prevalence MAE. |
-| CAMS reasoning study | Qwen3.8 27B | off / low / medium reasoning | 1,000 paired | Yes | Reasoning improves Brier/log loss and reduces extremeness, while hard population fidelity and hard accuracy worsen. Full-sample probability prevalence also worsens, but that effect is sensitive to the reasoning length-failure tail. |
-| CMS Telecom multi-model | Luna | rich persona | 1,500 | No truth bundle currently committed | Complete synthetic output set. |
-| CMS Telecom cross-model | Luna vs Claude | model identity | 250 matched | No truth bundle currently committed | Models broadly agree on respondent ranking, but Luna shifts predicted probabilities upward by about 9.7 pp on average. |
-| PLFS 2023-24 | Luna | rich persona | 1,500 | No truth bundle currently committed | Complete final output set. |
-| PLFS 2023-24 | Claude | rich persona | 250 | No truth bundle currently committed | Complete final output set; matched Luna-Claude comparison recoverable from final shards. |
-| CMS / PLFS Gemini branches | Gemini | model identity | incomplete | No | Operationally unreliable and retired; use only as engineering evidence or appendix material, not confirmatory fidelity evidence. |
+All values below come from the final common-engine, zero-inference synthesis in `analysis_final/results/`. Original frozen analyses remain authoritative for their preregistered primary claims, while this layer provides a common metric implementation for cross-study comparison.
 
-## CAMS persona richness
+| Evidence family | Model | Design | Respondents | Final role |
+|---|---|---|---:|---|
+| Persona information | GPT-5.6 Luna | thin vs rich | 1,000 paired | truth-linked primary evidence |
+| Persona robustness | Claude Sonnet 5 | thin vs rich | 250 paired | truth-linked robustness evidence |
+| Reasoning | Qwen3.8-27B | off / low / medium | 1,000 paired | truth-linked primary reasoning evidence |
+| S01 reasoning replication | DeepSeek V4 Flash 0731 | rich/off vs rich/high | 1,000 paired | truth-linked model-family replication |
+| S03 factorial | DeepSeek V4 Flash 0731 | thin/rich × off/high | 1,000 | truth-linked factorial mechanism test |
+| Supervised references | prevalence, logistic, gradient boosting, random forest | 10-fold cross-fitted | 1,000 | supervised comparison only |
 
-### GPT-5.6 Luna, n=1,000
+CMS and PLFS synthetic-output branches remain useful as model-instability and engineering evidence. They are excluded from truth-linked accuracy claims because the repository does not contain the matched truth assets needed for the final paper.
 
-| Condition | Hard prevalence MAE | Probability prevalence MAE | Mean Brier |
-|---|---:|---:|---:|
-| thin | 14.556 pp | 10.172 pp | 0.16941 |
-| rich | 17.753 pp | 9.656 pp | 0.15075 |
+## One common analysis engine
 
-Rich personas improve the respondent-level proper score strongly, and slightly improve the aggregate probability mean, while substantially worsening the prevalence generated by categorical yes/no responses.
+The final synthesis reconstructs all 11 completed LLM cells from the authoritative completed outputs and evaluates them against the same CAMS truth infrastructure. Luna and Claude are no longer represented only by carried-forward point estimates in the canonical package.
 
-### Claude Sonnet 5, n=250
+The harmonized analysis uses:
 
-| Condition | Hard prevalence MAE | Probability prevalence MAE | Mean Brier |
-|---|---:|---:|---:|
-| thin | 12.073 pp | 8.300 pp | 0.15822 |
-| rich | 7.662 pp | 9.364 pp | 0.14365 |
+- survey weights throughout;
+- one metric implementation across all four LLM families;
+- log-loss clipping at `1e-6` for harmonized comparisons;
+- 10,000 paired respondent bootstrap replicates;
+- bootstrap seed `3108202691`;
+- aggregate-only durable outputs.
 
-The sign of the aggregate effect now depends on which aggregate representation is evaluated. Rich personas improve Brier and hard prevalence MAE, while worsening probability-prevalence MAE.
+The final harmonization workflow performs no paid LLM inference.
 
-Across Luna and Claude, the stable result is therefore not that richer personas always improve or worsen population reconstruction. The stable result is that **improved individual probabilistic prediction does not determine the direction of aggregate population fidelity**.
+## Persona information
 
-## CAMS reasoning experiment
+### Luna, rich minus thin
 
-Qwen3.8 27B, n=1,000 respondents in all three paired arms.
+| Metric | Effect | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | -0.01866 | [-0.02418, -0.01333] |
+| Log loss | -0.05510 | [-0.07136, -0.03964] |
+| Hard accuracy | +0.97 pp | [-0.02, +1.98] pp |
+| Probability-prevalence MAE | -0.52 pp | [-2.23, +0.50] pp |
+| Hard-prevalence MAE | +3.20 pp | [+2.24, +4.13] pp |
 
-| Condition | Probability prevalence MAE | Individual Brier | Hard prevalence MAE | Hard accuracy | Log loss |
-|---|---:|---:|---:|---:|---:|
-| off | 12.285 pp | 0.17806 | 11.514 pp | 0.7881 | 0.5906 |
-| low | 13.705 pp | 0.16701 | 14.822 pp | 0.7750 | 0.5171 |
-| medium | 13.307 pp | 0.16488 | 15.222 pp | 0.7703 | 0.5050 |
+Richer Luna personas clearly improve respondent-level probabilistic prediction. The corresponding change in probability-prevalence MAE is uncertain, while hard categorical population reconstruction becomes significantly worse.
 
-Prespecified medium-minus-off contrasts:
+This is the cleanest within-model example of the paper's central non-guarantee: a strong individual-level improvement coexists with a clear deterioration in one population estimand.
 
-- probability-prevalence MAE: +1.023 pp, 95% paired bootstrap CI [+0.334, +1.789];
-- Brier: -0.01318, 95% CI [-0.01877, -0.00762].
+### Claude, rich minus thin
 
-The Brier improvement is driven by a reduction in respondent-level error variance despite slightly greater squared aggregate bias. Reasoning also reduces probability extremeness substantially.
+| Metric | Effect | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | -0.01457 | [-0.02537, -0.00383] |
+| Log loss | -0.03296 | [-0.06139, -0.00487] |
+| Hard accuracy | +3.60 pp | [+1.26, +5.93] pp |
+| Probability-prevalence MAE | +1.06 pp | [+0.10, +3.23] pp |
+| Hard-prevalence MAE | -4.41 pp | [-7.14, -1.36] pp |
 
-The categorical-population deterioration is robust to retry-tail sensitivity analyses. The probability-prevalence deterioration is less robust: excluding all respondents whose medium request ever experienced length truncation weakens the effect to near zero, while excluding only the extreme retry tail preserves a positive effect. The primary full-sample result remains the prespecified estimate, but the operational heterogeneity must be disclosed.
+Claude shows a different aggregate pattern. Rich personas improve Brier, log loss, hard accuracy, and hard-prevalence MAE, but significantly worsen population prevalence when the population estimate is formed from mean predicted probabilities.
 
-## Joint-distribution and latent-structure finding
+The Luna and Claude comparison therefore rejects a scalar notion of population fidelity. Even the sign of the aggregate effect can depend on how the synthetic responses are represented.
 
-The human CAMS population has 14 observed six-outcome hard-response patterns and about 2.486 bits of weighted entropy. Qwen produces fewer and more concentrated joint patterns:
+## Reasoning is strongly model-dependent
 
-- off: 5 patterns, entropy 1.965 bits, largest pattern 44.2%;
-- low: 7 patterns, entropy 1.914 bits, largest pattern 53.4%;
-- medium: 8 patterns, entropy 1.892 bits, largest pattern 54.2%.
+### Qwen medium reasoning minus off
 
-TV distance from the human joint distribution rises from about 0.395 under off to 0.417 under medium reasoning. Pairwise hard-answer correlation RMSE from the human matrix also worsens with reasoning.
+| Metric | Effect | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | -0.01318 | [-0.01883, -0.00767] |
+| Log loss | -0.08562 | [-0.10424, -0.06738] |
+| Hard accuracy | -1.77 pp | [-2.64, -0.88] pp |
+| Probability-prevalence MAE | +1.02 pp | [+0.33, +1.80] pp |
+| Hard-prevalence MAE | +3.71 pp | [+2.89, +4.53] pp |
 
-A particularly important structural error is the underrepresentation of a common Indian phone-first digital phenotype: respondents who use mobile phones and the internet and can perform digital skills despite lacking conventional computer ability. The model collapses many such profiles into a simplified mobile-active but otherwise digitally inactive archetype, and the transition becomes more common with reasoning.
+Qwen reasoning improves both proper respondent-level probability scores, but worsens hard accuracy and both population-prevalence endpoints. It also reduces probability extremeness, so the result is not simply greater confidence producing better-looking individual scores.
 
-## Demographic fidelity
+### DeepSeek high reasoning minus off under rich personas
 
-The synthetic population does not simply amplify every demographic stereotype. It selectively overstates some axes and compresses others.
+| Metric | Effect | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | -0.01796 | [-0.03087, -0.00483] |
+| Log loss | +0.41927 | [+0.26528, +0.57485] |
+| Hard accuracy | +4.37 pp | [+2.65, +6.07] pp |
+| Probability-prevalence MAE | -5.76 pp | [-8.32, -3.27] pp |
+| Hard-prevalence MAE | -16.67 pp | [-18.19, -13.98] pp |
 
-The reasoning study strongly exaggerates rural-urban gaps for computer and internet outcomes, while genuine age and gender heterogeneity is often compressed. Medium reasoning reduces some of the rural-urban excess relative to off, but large discrepancies remain.
+DeepSeek produces nearly the opposite population result. High reasoning improves Brier, accuracy, probability prevalence, hard prevalence, and joint population structure, while log loss becomes dramatically worse.
 
-Young adults are especially important. They experience high reasoning length-failure rates, very small Brier gains, and large aggregate probability degradation for digital-use outcomes. This makes age-dependent reasoning behavior a mechanism worth testing prospectively rather than treating as a post-hoc curiosity.
+### Direct Qwen-versus-DeepSeek reasoning interaction
 
-## Cross-model population priors in CMS
+Because Qwen and DeepSeek share the same 1,000 CAMS respondents, the difference in reasoning effects is estimated directly rather than inferred from separate confidence intervals. The contrast is:
 
-On 250 exactly matched CMS Telecom respondents, Luna and Claude have mean hard-answer agreement of about 86.2% and high probability-rank correlations, yet Luna's predicted probability is on average about 9.65 percentage points higher across the six outcomes. Every outcome-specific paired probability-difference confidence interval excludes zero.
+`(DeepSeek rich/high - rich/off) - (Qwen medium - off)`
 
-This suggests that model identity can operate like a population-level prior or intercept shift: models can broadly agree about who is relatively more likely to exhibit an outcome while disagreeing materially about the population level.
+| Metric | Difference in reasoning effects | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | -0.00478 | [-0.01917, +0.01011] |
+| Log loss | +0.50488 | [+0.35066, +0.66182] |
+| Hard accuracy | +6.14 pp | [+4.19, +8.07] pp |
+| Probability-prevalence MAE | -6.79 pp | [-9.08, -4.52] pp |
+| Hard-prevalence MAE | -20.38 pp | [-22.04, -17.46] pp |
 
-The current repository does not contain a separate CMS truth bundle, so this result should be framed as cross-model instability rather than a claim about which model is more accurate.
+The Brier interaction itself is uncertain, but the consequences of reasoning for log loss, hard accuracy, and both prevalence metrics differ sharply and precisely across the two model families.
 
-## What is confirmatory versus exploratory
+The appropriate conclusion is therefore not that reasoning is intrinsically beneficial or harmful. Reasoning changes the synthetic population in a model-dependent way.
 
-### Strong confirmatory / primary evidence
+## DeepSeek persona × reasoning factorial
 
-- CAMS Luna rich-vs-thin experiment using frozen held-out truth.
-- CAMS Claude rich-vs-thin robustness experiment on its frozen matched subset.
-- CAMS Qwen reasoning study with frozen analysis plan and 10,000 paired respondent bootstrap.
+The DeepSeek four-cell design separates persona-information effects from reasoning effects.
 
-### Secondary but important mechanistic evidence
+The factorial interaction is defined as:
 
-- joint response-vector structure;
-- demographic-gap reproduction;
-- phone-first digital phenotype analysis;
-- Brier decomposition;
-- retry/length sensitivity;
-- reasoning probability-shift analysis.
+`(rich/high - rich/off) - (thin/high - thin/off)`
 
-### Cross-model external-validity evidence without truth in current repo
+| Metric | Interaction | 95% paired bootstrap CI |
+|---|---:|---:|
+| Individual Brier | +0.01743 | [+0.00311, +0.03138] |
+| Log loss | +0.60157 | [+0.41454, +0.78497] |
+| Hard accuracy | -0.77 pp | [-2.49, +0.98] pp |
+| Probability-prevalence MAE | +2.08 pp | [-0.49, +4.17] pp |
+| Hard-prevalence MAE | -4.64 pp | [-6.35, -1.77] pp |
 
-- CMS Luna-vs-Claude matched comparison;
-- PLFS Luna-vs-Claude matched comparison once reconstructed from final shards.
+Reasoning improves Brier more when persona information is thin. For hard population reconstruction, however, rich persona information complements reasoning: the hard-prevalence improvement from reasoning is significantly larger under rich personas.
 
-### Engineering-only / appendix
+The same factorial therefore contains substitution on one validation target and complementarity on another.
 
-- Gemini failures and provider incompatibilities;
-- abandoned xhigh reasoning arm, documented as a pre-outcome engineering correction;
-- transient provider/retry failures.
+## Probability-tail reversal
 
-## Unified interpretation
+DeepSeek rich/high illustrates why one proper score cannot stand in for another.
 
-The repository supports a multi-axis view of synthetic-population simulation. Persona information, model identity, and inference-time reasoning alter not merely the amount of predictive error but its structure. A method can improve proper respondent-level prediction while simultaneously changing marginal population prevalence, categorical responses, dependence between outcomes, demographic gaps, or the effective diversity of the synthetic population.
+| Diagnostic | Rich/off | Rich/high |
+|---|---:|---:|
+| Extreme probability share | 10.53% | 30.44% |
+| Wrong extreme share | 2.02% | 6.48% |
+| Exact 0 or 1 share | 10.03% | 27.13% |
+| Item log loss > 5 | 2.00% | 6.22% |
+| Item log loss > 10 | 2.00% | 6.22% |
 
-The practical implication is that validation of synthetic respondents cannot rely on a single accuracy or Brier metric. Population simulation requires direct validation of the estimand for which the synthetic population will actually be used.
+High reasoning lowers average squared probability error but creates a substantially heavier tail of confidently wrong predictions. Brier improves while log loss worsens because log loss assigns much greater penalty to those rare extreme mistakes.
+
+Qwen moves in the opposite confidence direction: medium reasoning reduces both the extreme-probability share and the wrong-extreme share.
+
+## Joint population structure
+
+The real CAMS population contains 14 observed six-outcome hard-response patterns, with weighted entropy of 2.486 bits and a largest-pattern share of 28.72%.
+
+| Cell | Entropy | Joint TV from human | Joint JS | Correlation RMSE |
+|---|---:|---:|---:|---:|
+| Luna thin | 1.930 | 0.480 | 0.296 | 0.258 |
+| Luna rich | 1.784 | 0.548 | 0.344 | 0.246 |
+| Claude thin | 1.754 | 0.390 | 0.259 | 0.226 |
+| Claude rich | 1.962 | 0.363 | 0.226 | 0.208 |
+| Qwen off | 1.965 | 0.395 | 0.232 | 0.212 |
+| Qwen medium | 1.892 | 0.417 | 0.238 | 0.240 |
+| DeepSeek thin/off | 1.283 | 0.658 | 0.410 | 0.302 |
+| DeepSeek thin/high | 2.176 | 0.285 | 0.093 | 0.141 |
+| DeepSeek rich/off | 1.307 | 0.626 | 0.389 | 0.300 |
+| DeepSeek rich/high | 2.298 | 0.190 | 0.056 | 0.092 |
+
+The joint-distribution result reinforces the cross-model reasoning reversal. Qwen medium reasoning slightly worsens joint TV and correlation structure relative to off. DeepSeek high reasoning sharply improves both thin and rich cells, with rich/high approaching the human entropy and dominant-pattern share much more closely.
+
+The models still make structurally meaningful errors. In particular, the human phone-first digital phenotype is underrepresented even in the strongest DeepSeek cell, so strong marginal performance does not imply full recovery of the latent joint population.
+
+## Age heterogeneity
+
+Age-specific reasoning effects are secondary or exploratory unless prospectively specified in the relevant original study. They are nevertheless notable because related structure appears across model families.
+
+For Qwen, reasoning worsens probability-prevalence fidelity among respondents aged 15-24 and 25-34, is approximately neutral around ages 35-44, and becomes beneficial or near-beneficial in older groups.
+
+For DeepSeek rich personas, high reasoning also performs poorly for younger respondents on some individual or probability endpoints, while population-prevalence effects become increasingly beneficial from age 35 onward and are very large for ages 45+.
+
+This cross-model age pattern is a useful mechanism hypothesis, not a license to convert exploratory subgroup findings into a new primary claim.
+
+## Supervised reference models
+
+The supervised models are 10-fold cross-fitted reference points trained with labeled outcomes. They are not information-regime-equivalent substitutes for zero-shot LLM simulation.
+
+| Model | Brier | Log loss | Hard accuracy | Probability-prevalence MAE | Hard-prevalence MAE | Joint TV |
+|---|---:|---:|---:|---:|---:|---:|
+| Gradient boosting | 0.12242 | 0.38779 | 82.53% | 0.46 pp | 3.88 pp | 0.168 |
+| Logistic regression | 0.12917 | 0.44944 | 81.86% | 0.38 pp | 3.47 pp | 0.138 |
+| Random forest | 0.12238 | 0.38607 | 82.55% | 0.08 pp | 8.72 pp | 0.242 |
+| Weighted prevalence | 0.18562 | 0.55131 | 71.10% | ~0.00 pp | 28.90 pp | 0.882 |
+
+The baseline comparison makes the same methodological point from another direction. The model with nearly perfect probability-prevalence reproduction can be extremely poor at hard-population and joint-distribution reconstruction. The lowest Brier does not coincide with the best hard-prevalence or joint-TV score.
+
+There is no single universally best synthetic-population model without first specifying the estimand.
+
+## Evidence hierarchy
+
+### Primary and confirmatory evidence
+
+- Luna thin-versus-rich CAMS persona experiment under its frozen design.
+- Claude thin-versus-rich matched robustness experiment under its frozen design.
+- Qwen off/low/medium reasoning experiment under its frozen analysis plan.
+- DeepSeek S01 rich/off-versus-rich/high replication.
+- DeepSeek S03 persona × reasoning factorial.
+
+### Cross-study harmonized inference
+
+- common-engine cell metrics across all 11 LLM cells;
+- 10,000 paired-bootstrap persona and reasoning contrasts;
+- direct Qwen-versus-DeepSeek model × reasoning heterogeneity;
+- common joint-distribution metrics;
+- cross-fitted supervised reference models.
+
+### Secondary or mechanistic evidence
+
+- age and demographic heterogeneity;
+- response-pattern fingerprints;
+- probability-tail diagnostics;
+- retry and first-pass sensitivity analyses;
+- outcome-level residual failure patterns.
+
+### Excluded from truth-linked accuracy claims
+
+- CMS and PLFS branches without matched truth assets in the current repository;
+- Gemini/provider-failure branches;
+- S02 and S05, which remain unrun prospective designs;
+- S04, which is scientifically blocked without matched PLFS truth.
+
+## Final interpretation
+
+The repository supports a multi-axis view of synthetic-population validation. Persona information, inference-time reasoning, and model identity alter not only how much error a synthetic respondent makes, but the structure of that error.
+
+A system can improve individual Brier while worsening population prevalence. It can improve one population representation while worsening another. It can recover marginals while distorting the joint distribution. It can improve average probability error while creating catastrophic tail errors. The direction of these trade-offs can reverse across model families.
+
+The practical implication is simple: **synthetic respondents must be validated against the estimand for which they will actually be used**. Individual prediction metrics alone are insufficient evidence that a synthetic population is fit for population-level inference.
