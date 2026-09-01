@@ -2,19 +2,19 @@
 
 [![Final repository QA](https://github.com/abdullah-x-bd/LLM_Persona/actions/workflows/final_qa.yml/badge.svg)](https://github.com/abdullah-x-bd/LLM_Persona/actions/workflows/final_qa.yml)
 
-A frozen research artifact for evaluating whether improvements in **individual-level LLM simulation** translate into improvements in **population-level fidelity**.
+This repository contains the research artifact for a multi-model study of whether improvements in **individual-level LLM simulation** translate into improvements in **population-level fidelity**.
 
 The central result is a non-guarantee: **improving synthetic individuals does not guarantee improving synthetic populations**. Across persona interventions, inference-time reasoning, multiple model families, and multiple population estimands, individual predictive fidelity and population fidelity can move together or in opposite directions.
 
-This repository contains the completed analysis code, aggregate result tables, final R figures, study registry, provenance records, and machine-readable integrity checks for the frozen evidence package.
+The repository includes the completed analysis code, aggregate result tables, R figures, study registry, provenance records, citation metadata, licenses, and machine-readable integrity checks for version 1.0.0.
 
-## What is novel here
+## Research contribution
 
-Prior work has established that LLM-generated populations can fail to reproduce real population distributions. This project tests a narrower question directly: **when a controlled intervention makes the same synthetic respondents better at matching their corresponding human respondents, does the reconstructed population also improve?**
+Prior work has shown that LLM-generated populations can fail to reproduce real population distributions. This study tests a narrower question directly: **when a controlled intervention makes the same synthetic respondents better at matching their corresponding human respondents, does the reconstructed population also improve?**
 
 The answer depends on the model and the estimand. The same intervention can improve respondent-level Brier score while worsening population prevalence, improve one representation of prevalence while worsening another, or improve average probability error while creating a heavier tail of confidently wrong predictions.
 
-The practical implication is simple: **synthetic respondents should be validated against the population-level quantity for which they will actually be used.** Person-level accuracy alone is not sufficient evidence of population validity.
+The practical implication is simple: **synthetic respondents must be validated against the population-level quantity for which they will actually be used.** Person-level accuracy alone is not sufficient evidence of population validity.
 
 ## Evidence base
 
@@ -29,7 +29,7 @@ The truth-linked empirical program uses the Government of India Comprehensive An
 | Persona × reasoning factorial | DeepSeek V4 Flash 0731 | thin/rich × off/high | 1,000 |
 | Supervised references | prevalence, logistic, gradient boosting, random forest | 10-fold cross-fitted | 1,000 |
 
-The final common engine harmonizes **11 completed LLM cells**, uses survey weights throughout, and estimates paired contrasts with **10,000 respondent bootstrap replicates** where paired outputs are available.
+The common analysis engine harmonizes **11 completed LLM cells**, uses survey weights throughout, and estimates paired contrasts with **10,000 respondent bootstrap replicates** where paired outputs are available.
 
 ## Headline findings
 
@@ -41,24 +41,24 @@ The final common engine harmonizes **11 completed LLM cells**, uses survey weigh
 - **DeepSeek factorial:** reasoning improves Brier more under thin personas, while rich persona information complements reasoning for hard population reconstruction.
 - **Supervised references:** model ranking changes with the validation target. No single method dominates Brier, prevalence, hard-population, and joint-distribution fidelity.
 
-For exact estimates and confidence intervals, see [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) and [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv).
+Exact estimates and confidence intervals are in [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) and [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv).
 
 ## Canonical research artifact
 
-The public, durable publication package lives under [`analysis_final/`](analysis_final/).
+The durable analysis package is under [`analysis_final/`](analysis_final/).
 
-- [`analysis_final/results/`](analysis_final/results/) contains aggregate-only final result tables and a SHA-256 manifest.
-- [`analysis_final/figures/`](analysis_final/figures/) contains the eight final figures in PDF, SVG, and 600-dpi PNG, with a separate checksum manifest.
+- [`analysis_final/results/`](analysis_final/results/) contains aggregate-only result tables and a SHA-256 manifest.
+- [`analysis_final/figures/`](analysis_final/figures/) contains eight figures in PDF, SVG, and 600-dpi PNG, with a separate checksum manifest.
 - [`analysis_final/unified_analysis.py`](analysis_final/unified_analysis.py) is the canonical four-family common metric engine.
 - [`analysis_final/baselines.py`](analysis_final/baselines.py) implements the cross-fitted supervised reference models.
-- [`analysis_final/figures.R`](analysis_final/figures.R) generates the final figure suite.
-- [`analysis_final/final_qa.py`](analysis_final/final_qa.py) validates the frozen result, figure, documentation, and privacy boundary.
+- [`analysis_final/figures.R`](analysis_final/figures.R) generates the figure suite.
+- [`analysis_final/final_qa.py`](analysis_final/final_qa.py) validates the result, figure, documentation, licensing, and privacy boundaries.
 
-The authoritative final provenance record is [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md).
+The provenance record is [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md). The frozen scientific boundary is recorded in [`docs/SCIENTIFIC_FREEZE.md`](docs/SCIENTIFIC_FREEZE.md).
 
-## Final figure suite
+## Figure suite
 
-The R/ggplot2 publication package contains:
+The R/ggplot2 package contains:
 
 1. micro-versus-macro fidelity map;
 2. Qwen-versus-DeepSeek reasoning reversal;
@@ -69,27 +69,25 @@ The R/ggplot2 publication package contains:
 7. DeepSeek confidence-tail trade-off;
 8. outcome-level reasoning-effect heatmap.
 
-All PNGs are rendered at 600 dpi. No plot title is embedded in the artwork.
+All PNGs are rendered at 600 dpi. Plot titles are kept outside the artwork.
 
 ## Reproducibility and integrity
 
-The durable publication package is deliberately aggregate-only. Historical respondent-level generation outputs remain encrypted and are not committed as final plaintext artifacts. Human CAMS outcome truth is kept out of generation and is joined only during post-generation analysis.
+The durable publication package is aggregate-only. Historical respondent-level generation outputs remain encrypted and are not committed as final plaintext artifacts. Human CAMS outcome truth is excluded from generation and is joined only during post-generation analysis.
 
-The final common-engine package records:
+The common-engine package records:
 
 - 1,000 CAMS truth respondents;
-- 250 respondents in the frozen Claude robustness subset;
+- 250 respondents in the Claude robustness subset;
 - 11 completed LLM cells;
 - 10,000 bootstrap replicates;
 - bootstrap seed `3108202691`;
 - no paid LLM inference in final harmonization;
 - no respondent-level plaintext in the durable result package.
 
-Both result and figure directories contain file-level SHA-256 manifests. The final QA workflow rechecks package integrity and the zero-inference boundary.
+Both result and figure directories contain file-level SHA-256 manifests. The final QA workflow checks package integrity and the zero-inference boundary.
 
-### Verify the committed publication package
-
-Python 3.12 is used by the final QA workflow.
+### Verify version 1.0.0
 
 ```bash
 python -m venv .venv
@@ -104,7 +102,7 @@ A successful run ends with:
 FINAL_REPO_QA_PASS
 ```
 
-### Regenerate the figures from committed aggregate results
+### Regenerate figures from committed aggregate results
 
 The figure script uses R with `ggplot2`, `dplyr`, `tidyr`, `readr`, `scales`, `ggrepel`, `patchwork`, and `svglite`.
 
@@ -130,11 +128,11 @@ The machine-readable study boundary is [`studies/registry.json`](studies/registr
 
 - **S01:** complete and analyzed.
 - **S03:** complete and analyzed.
-- **S02:** archived unrun prospective study, not required for the frozen evidence package.
+- **S02:** archived unrun prospective study.
 - **S04:** scientifically blocked because matched PLFS truth is unavailable and excluded from truth-linked claims.
-- **S05:** archived unrun prospective study, not required for the frozen evidence package.
+- **S05:** archived unrun prospective study.
 
-Historical CMS and PLFS branches remain in the repository for provenance and engineering history. They are not part of the final truth-linked accuracy evidence without matched truth assets.
+Historical CMS and PLFS branches remain in the repository for provenance and engineering history. They are not part of the truth-linked accuracy evidence without matched truth assets.
 
 ## Repository map
 
@@ -146,19 +144,19 @@ LLM_Persona/
 ├── LICENSE-CONTENT.md              # CC BY 4.0 for original research content
 ├── requirements.txt
 ├── analysis_final/
-│   ├── results/                    # canonical aggregate publication results
-│   ├── figures/                    # final PDF/SVG/600-dpi PNG figures
+│   ├── results/                    # canonical aggregate results
+│   ├── figures/                    # PDF/SVG/600-dpi PNG figures
 │   ├── unified_analysis.py         # canonical cross-study engine
 │   ├── baselines.py                # cross-fitted supervised references
-│   ├── figures.R                   # publication figure generation
+│   ├── figures.R                   # R figure generation
 │   └── final_qa.py                 # integrity/privacy/release gate
 ├── docs/
 │   ├── REPO_WIDE_RESULTS_SYNTHESIS.md
 │   ├── FINAL_PROVENANCE.md
-│   ├── PRE_MANUSCRIPT_AUDIT.md
+│   ├── SCIENTIFIC_FREEZE.md
 │   ├── REPO_MAP.md
 │   ├── RELEASE_NOTES_v1.0.0.md
-│   └── RELEASE_CHECKLIST.md
+│   └── RELEASE_v1.0.0.md
 ├── studies/                        # frozen study registry and follow-up provenance
 ├── reasoning_population_fidelity/ # completed Qwen reasoning study
 ├── src/                            # historical runtime and analysis infrastructure
@@ -166,22 +164,19 @@ LLM_Persona/
 └── .github/workflows/              # historical and final zero-inference workflows
 ```
 
-## Documentation guide
+## Documentation
 
-For the shortest path through the repository:
-
-1. [`analysis_final/results/summary.json`](analysis_final/results/summary.json) for machine-readable final status and provenance;
-2. [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) for the full empirical synthesis;
-3. [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv) for paired effects and confidence intervals;
-4. [`analysis_final/figures/`](analysis_final/figures/) for the final publication figures;
-5. [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md) for authoritative runs, artifacts, seeds, and privacy guarantees;
-6. [`docs/PRE_MANUSCRIPT_AUDIT.md`](docs/PRE_MANUSCRIPT_AUDIT.md) for the historical scientific freeze audit.
+- [`analysis_final/results/summary.json`](analysis_final/results/summary.json) provides machine-readable final status and provenance.
+- [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) contains the empirical synthesis.
+- [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv) contains paired effects and confidence intervals.
+- [`analysis_final/figures/`](analysis_final/figures/) contains the figure package.
+- [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md) records authoritative runs, artifacts, seeds, and privacy guarantees.
+- [`docs/SCIENTIFIC_FREEZE.md`](docs/SCIENTIFIC_FREEZE.md) records the scientific boundary of version 1.0.0.
+- [`docs/RELEASE_v1.0.0.md`](docs/RELEASE_v1.0.0.md) records the stable release identity and contents.
 
 ## Citation
 
-Citation metadata are provided in [`CITATION.cff`](CITATION.cff). The repository is being prepared as the stable `v1.0.0` research artifact. Until the companion article receives its final bibliographic record, cite the tagged repository release when using the code, figures, or aggregate results.
-
-A release-ready BibTeX form is:
+Citation metadata are provided in [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
 @software{abdullah_x_llm_persona_2026,
@@ -193,13 +188,9 @@ A release-ready BibTeX form is:
 }
 ```
 
-After a formal article DOI is available, this section and `CITATION.cff` should be updated to make the published paper the preferred citation.
+## Versioning
 
-## Release policy
-
-The frozen scientific evidence should not be silently rewritten after `v1.0.0`. Reviewer-driven or later scientific extensions should receive new provenance records and a new version rather than changing the evidentiary meaning of the original release.
-
-The ready-to-paste release notes and release checklist are in [`docs/RELEASE_NOTES_v1.0.0.md`](docs/RELEASE_NOTES_v1.0.0.md) and [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+Version `v1.0.0` freezes the evidentiary meaning of this research artifact. Scientific extensions are versioned separately with their own provenance records rather than changing the meaning of the tagged release.
 
 ## License
 
