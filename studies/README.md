@@ -1,73 +1,34 @@
-# Confirmatory follow-up study suite
+# Follow-up study suite
 
-This directory contains the five experiments designed after the repo-wide synthesis. They are implemented as one guarded suite so identical arms are not paid for twice and all studies use the same privacy, provider, schema, cost-accounting, and artifact rules.
+The follow-up suite is frozen for the current manuscript.
 
-## Scientific objective
+| ID | Design | Final status |
+|---|---|---|
+| S01 | DeepSeek rich persona, reasoning off vs high, n=1,000 paired CAMS | **COMPLETE AND ANALYZED** |
+| S02 | Length-safe Qwen off vs medium | **ARCHIVED, UNRUN** |
+| S03 | DeepSeek 2 × 2 persona × reasoning factorial, n=1,000 | **COMPLETE AND ANALYZED** |
+| S04 | PLFS DeepSeek reasoning replication | **SCIENTIFICALLY BLOCKED**, no matched truth bundle |
+| S05 | Fresh CAMS holdout confirmation | **ARCHIVED, UNRUN** |
 
-The umbrella hypothesis is that synthetic-population fidelity is multi-level: an intervention can improve respondent-level probabilistic prediction without improving, and sometimes while degrading, aggregate prevalence, categorical responses, subgroup structure, or the joint distribution of synthetic respondents.
+S01 and S03 are the only new paid follow-up studies included in the current paper. Their final production provider was OpenInference FP8, with fallbacks disabled, provider data collection `deny`, and human truth excluded from generation. S03 reuses the exact S01 rich/off and rich/high cells.
 
-## Studies
+S02 and S05 remain preserved as prospective designs for provenance or future work. They should not be described as completed studies. S04 must not be launched or interpreted scientifically until a matched PLFS truth asset exists.
 
-| ID | Study | New paid arms | Current readiness |
-|---|---|---|---|
-| S01 | Second-model reasoning replication | DeepSeek V4 Flash 0731 rich persona, reasoning off vs high, 1,000 paired CAMS respondents | **Zero-cost preflight passed** |
-| S02 | Length-safe reasoning replication | Qwen3.8-27B rich persona, off vs medium, 1,000 paired CAMS respondents, 3,200-token medium cap | **Zero-cost preflight passed** |
-| S03 | Persona × reasoning factorial | DeepSeek thin/off and thin/high on 1,000 CAMS respondents; rich cells reused from S01 | **Zero-cost preflight passed** |
-| S04 | PLFS cross-domain reasoning replication | DeepSeek rich/off vs rich/high on 1,000 PLFS respondents | **Blocked** until matched PLFS truth is restored; current live cost projection available |
-| S05 | Fresh preregistered holdout | 500 untouched CAMS respondents across four predeclared arms | **Blocked** until fresh codes and truth are frozen; projection uses existing CAMS prompt lengths only |
+## Completed DeepSeek evidence
 
-The exact machine-readable specification is `studies/registry.json`.
+S01 shows that high reasoning can improve Brier, hard accuracy, probability prevalence, hard prevalence, and joint population structure, while worsening log loss through a larger tail of extreme wrong probabilities.
 
-## Why DeepSeek replaced GPT-OSS
+S03 shows that persona information and reasoning interact. Reasoning substitutes for some missing persona information for individual Brier, but complements rich information for hard population reconstruction. The factorial analysis also recovers a strong age gradient and substantial changes in response-pattern diversity.
 
-The first zero-cost gate evaluated `openai/gpt-oss-120b` for the second-model studies and found that current OpenRouter metadata marks reasoning as mandatory. That makes a genuine reasoning-off arm impossible. No paid inference had been performed. The design was therefore corrected prospectively to `deepseek/deepseek-v4-flash-0731`, for which the gate verified optional reasoning and a supported `high` effort on the pinned AkashML endpoint.
+This result is intentionally contrasted with the completed Qwen reasoning study, where medium reasoning improves Brier/log loss but worsens hard accuracy and population prevalence. The final zero-inference analysis estimates the Qwen-versus-DeepSeek reasoning heterogeneity directly with a paired respondent bootstrap.
 
-A later engineering pilot also caught a transient negative endpoint-health status for DeepSeek before any inference call was sent. The preflight was strengthened so any negative numeric endpoint status now blocks launch. A subsequent metadata scan and preflight found the endpoint healthy again at status 0. This provenance is retained because endpoint health is a real operational threat to large synthetic-population runs.
+## Canonical records
 
-## Current hard single-pass ceilings
+- Machine status and artifact IDs: `registry.json`
+- S01: `S01_second_model_reasoning/README.md`
+- S03: `S03_persona_reasoning_factorial/README.md`
+- DeepSeek results: `../docs/DEEPSEEK_S01_S03_FACTORIAL_RESULTS.md`
+- Final cross-study analysis: `../analysis_final/`
+- Pre-manuscript audit: `../docs/PRE_MANUSCRIPT_AUDIT.md`
 
-These are **worst-case ceilings**, calculated as if every request consumes its full maximum completion allowance. They are not forecasts of realized spend.
-
-- S01 live AkashML ceiling: **$0.452429**
-- S02 live AkashML ceiling: **$9.256217**
-- S03 live AkashML ceiling for the two new thin cells: **$0.430298**
-- S04 live proxy projection using the actual PLFS persona prompts: **$0.439899**
-- S05 live proxy projection using existing CAMS prompt lengths: **$5.079258**
-
-S04 and S05 projections are budgeting aids only. S04 remains blocked without matched PLFS truth. S05 remains blocked until an untouched holdout is actually frozen, at which point its request-set hash and cost ceiling must be recomputed from the real holdout rather than the proxy distribution.
-
-## Safety and spending rules
-
-No file in this directory performs paid inference merely because it is pushed. Paid execution requires all of the following:
-
-1. all encrypted codes and human-truth assets required for the study exist;
-2. static request construction succeeds;
-3. the live zero-cost OpenRouter preflight succeeds immediately before spending;
-4. the model still supports structured outputs, `max_tokens`, and the frozen reasoning conditions;
-5. the selected endpoint has a non-negative health status and supports every required parameter;
-6. provider fallbacks remain disabled;
-7. provider data collection is set to `deny`;
-8. the live hard single-pass ceiling is below the study's registered cap;
-9. any configured per-key OpenRouter limit has enough remaining capacity;
-10. the caller explicitly enters `I_ACCEPT_PAID_INFERENCE` in the manual paid workflow.
-
-The ordinary inference key currently reports no per-key limit, so `/api/v1/key` cannot reveal the account-wide prepaid balance. For the expensive S02/S05 runs, account credit must therefore also be checked in OpenRouter or through a management-key credits endpoint before launch. This does not weaken the workflow's own explicit study spend cap.
-
-Human truth is never loaded by the generation runner. Respondent-level model output is encrypted before it is uploaded as a workflow artifact.
-
-## Shared code
-
-- `common/suite_core.py` reconstructs frozen respondents and requests, performs launch readiness checks, and computes static/proxy cost projections.
-- `common/openrouter_preflight.py` queries metadata/key endpoints, endpoint health, and live provider pricing. It contains no chat-completions call.
-- `common/paid_runner.py` is the explicitly authorized production inference runner.
-- `common/engineering_micropilot.py` exercises every planned arm on two engineering respondents per study before production. S04/S05 use explicitly discarded proxy personas only.
-- `common/model_candidate_scan.py` is a metadata-only fallback-model scanner and cannot perform inference.
-- `registry.json` freezes models, arm definitions, completion limits, source assets, study caps, and reuse relationships.
-
-## Reuse rule
-
-S03 deliberately does not regenerate the rich-persona DeepSeek cells. The rich/off and rich/high cells are exactly S01 and must be reused in the 2 × 2 factorial analysis. This saves approximately half of the factorial inference cost and avoids introducing a second stochastic draw as an uncontrolled nuisance variable.
-
-## Before publication
-
-Every paid study must receive a frozen request-set hash, run ID, model and provider endpoint tag, realized cost, retry count, finish-reason/length-failure audit, and a truth-separated aggregate analysis record. Exploratory diagnostics must be labeled separately from preregistered confirmatory metrics.
+Historical preflight, provider-scan, engineering, production, and recovery code is retained as provenance. No additional inference is part of the current manuscript plan.
