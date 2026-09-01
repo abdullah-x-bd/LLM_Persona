@@ -44,14 +44,34 @@ REQUIRED_DOCS = [
     "LICENSE",
     "LICENSE-CONTENT.md",
     "analysis_final/README.md",
-    "docs/PRE_MANUSCRIPT_AUDIT.md",
+    "docs/SCIENTIFIC_FREEZE.md",
     "docs/FINAL_PROVENANCE.md",
     "docs/REPO_MAP.md",
     "docs/REPO_WIDE_RESULTS_SYNTHESIS.md",
     "docs/RELEASE_NOTES_v1.0.0.md",
-    "docs/RELEASE_CHECKLIST.md",
+    "docs/RELEASE_v1.0.0.md",
     "studies/README.md",
     "studies/registry.json",
+]
+
+PUBLIC_TEXT_FILES = [
+    "README.md",
+    "CITATION.cff",
+    "analysis_final/README.md",
+    "docs/SCIENTIFIC_FREEZE.md",
+    "docs/FINAL_PROVENANCE.md",
+    "docs/REPO_MAP.md",
+    "docs/RELEASE_NOTES_v1.0.0.md",
+    "docs/RELEASE_v1.0.0.md",
+]
+
+FORBIDDEN_PUBLIC_PHRASES = [
+    "ready-to-paste",
+    "recommended release title",
+    "when the companion article",
+    "should be updated to make the published article",
+    "when writing the paper",
+    "remaining work after this repository freeze",
 ]
 
 
@@ -138,6 +158,7 @@ def check_figures() -> None:
 def check_docs() -> None:
     for rel in REQUIRED_DOCS:
         assert (ROOT / rel).exists(), rel
+
     registry = json.loads((ROOT / "studies" / "registry.json").read_text(encoding="utf-8"))
     studies = registry["studies"]
     assert studies["S01_second_model_reasoning"]["status"] == "COMPLETE_AND_ANALYZED"
@@ -151,9 +172,9 @@ def check_docs() -> None:
     assert "LICENSE-CONTENT.md" in root_readme
     assert "MIT License" in root_readme
     assert "CC BY 4.0" in root_readme
-    assert "docs/PRE_MANUSCRIPT_AUDIT.md" in root_readme
+    assert "docs/SCIENTIFIC_FREEZE.md" in root_readme
     assert "docs/RELEASE_NOTES_v1.0.0.md" in root_readme
-    assert "docs/RELEASE_CHECKLIST.md" in root_readme
+    assert "docs/RELEASE_v1.0.0.md" in root_readme
     assert "analysis_final/results" in root_readme
     assert "analysis_final/figures" in root_readme
 
@@ -170,6 +191,11 @@ def check_docs() -> None:
     assert "Creative Commons Attribution 4.0 International License" in content_license
     assert "creativecommons.org/licenses/by/4.0/" in content_license
     assert "Government of India CAMS microdata" in content_license
+
+    for rel in PUBLIC_TEXT_FILES:
+        text = (ROOT / rel).read_text(encoding="utf-8").lower()
+        for phrase in FORBIDDEN_PUBLIC_PHRASES:
+            assert phrase not in text, (rel, phrase)
 
 
 def check_privacy() -> None:
