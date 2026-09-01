@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 env:
@@ -18,21 +18,48 @@ env:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install numpy pandas cryptography scikit-learn
+
       - name: Prove zero-inference analysis source
         run: |
-          python -m py_compile analysis_final/final_unified.py analysis_final/unified_analysis.py
-          ! grep -E '/chat/completions|requests\.post|urlopen\(|OpenRouter.*request' analysis_final/final_unified.py
-      - name: Download authoritative artifacts
+          set -euo pipefail
+          python -m py_compile analysis_final/unified_analysis.py analysis_final/recover_legacy.py analysis_final/finalize_outputs.py
+          ! grep -E '/chat/completions|requests\.post|urlopen\(' analysis_final/unified_analysis.py analysis_final/recover_legacy.py analysis_final/finalize_outputs.py
+          echo ZERO_INFERENCE_FOUR_FAMILY_GATE_PASS
+
+      - name: Download authoritative completed artifacts
         run: |
           set -euo pipefail
-          mkdir -p /tmp/qwen /tmp/s01 /tmp/s03 /tmp/baseline /tmp/final
+          mkdir -p /tmp/luna /tmp/claude_chunks /tmp/qwen /tmp/s01 /tmp/s03 /tmp/baseline /tmp/harmonized /tmp/final
+
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9723896566/zip > /tmp/luna.zip
+          unzip -q /tmp/luna.zip -d /tmp/luna
+          LUNA_COMBINED=$(find /tmp/luna -name 'results_combined.enc.b64' | head -n1)
+          test -n "$LUNA_COMBINED"
+
+          for C in $(seq 0 19); do
+            NAME="cams-claude-${C}"
+            AID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/33286721946/artifacts?per_page=100" --jq ".artifacts[] | select(.name==\"${NAME}\") | .id" | head -n1)
+            test -n "$AID"
+            TMP="/tmp/${NAME}"
+            mkdir -p "$TMP"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${AID}/zip" > "/tmp/${NAME}.zip"
+            unzip -q "/tmp/${NAME}.zip" -d "$TMP"
+            SRC=$(find "$TMP" -name '*.results.enc.b64' | head -n1)
+            test -n "$SRC"
+            printf -v PAD '%03d' "$C"
+            cp "$SRC" "/tmp/claude_chunks/chunk-${PAD}.results.enc.b64"
+          done
+          test "$(find /tmp/claude_chunks -name 'chunk-*.results.enc.b64' | wc -l)" -eq 20
+
           gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9750263228/zip > /tmp/qwen.zip
           gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9763493454/zip > /tmp/s01.zip
           gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9765135867/zip > /tmp/s03.zip
@@ -46,30 +73,91 @@ jobs:
           test -f /tmp/s01/raw_results.enc.b64
           test -f /tmp/s03/raw_results.enc.b64
           test -f /tmp/baseline/baseline_metrics.csv
-      - name: Run harmonized synthesis and 10000 paired bootstraps
+          echo "LUNA_COMBINED=$LUNA_COMBINED" >> "$GITHUB_ENV"
+
+      - name: Recover completed Luna and Claude rows transiently
         run: |
-          python analysis_final/final_unified.py \
-            --qwen-dir /tmp/qwen \
-            --s01-dir /tmp/s01 \
-            --s03-dir /tmp/s03 \
-            --baseline-dir /tmp/baseline \
-            --outdir /tmp/final
-      - name: Integrity gate
-        run: |
+          set -euo pipefail
+          mkdir -p /tmp/legacy
+          python analysis_final/recover_legacy.py --luna-combined "$LUNA_COMBINED" --out /tmp/legacy/luna.jsonl
+          python src/production_runtime.py combine --root /tmp/claude_chunks --out /tmp/legacy/claude.jsonl --manifest /tmp/legacy/claude_manifest.json
           python - <<'PY'
-          import json, pandas as pd
-          s=json.load(open('/tmp/final/summary.json'))
-          assert s['status']=='MANUSCRIPT_READY_ZERO_INFERENCE_SYNTHESIS'
-          assert s['paid_inference'] is False
-          assert s['respondent_plaintext_emitted'] is False
-          assert all(v==1000 for v in s['raw_reanalysis_cells'].values())
-          c=pd.read_csv('/tmp/final/contrasts.csv')
-          assert 'deepseek_minus_qwen_reasoning_effect' in set(c.contrast)
-          assert 'deepseek_persona_x_reasoning_interaction' in set(c.contrast)
-          print(c[c.contrast.isin(['qwen_medium_minus_off','deepseek_rich_high_minus_off','deepseek_minus_qwen_reasoning_effect'])].to_string(index=False))
+          import json
+          from pathlib import Path
+          rows=[json.loads(x) for x in Path('/tmp/legacy/claude.jsonl').read_text().splitlines() if x.strip()]
+          good=[r for r in rows if 'error' not in r]
+          ids={str(r['anon_id']) for r in good}
+          pairs={(str(r['anon_id']),str(r['condition'])) for r in good}
+          assert len(good)==500 and len(ids)==250 and len(pairs)==500, (len(good),len(ids),len(pairs))
+          assert {str(r['condition']) for r in good}=={'thin','rich'}
+          print('CLAUDE_LEGACY_RECOVERY_PASS',len(ids),len(good))
           PY
+
+      - name: Run common four-family metric engine and 10000 paired bootstraps
+        run: |
+          set -euo pipefail
+          python analysis_final/unified_analysis.py \
+            --luna-results /tmp/legacy/luna.jsonl \
+            --claude-results /tmp/legacy/claude.jsonl \
+            --qwen-dir /tmp/qwen \
+            --deepseek-s01-dir /tmp/s01 \
+            --deepseek-s03-dir /tmp/s03 \
+            --baseline-dir /tmp/baseline \
+            --outdir /tmp/harmonized
+          python analysis_final/finalize_outputs.py \
+            --indir /tmp/harmonized \
+            --outdir /tmp/final \
+            --workflow-run-id "${GITHUB_RUN_ID}" \
+            --analysis-sha "${GITHUB_SHA}"
+
+      - name: Final aggregate integrity and privacy gate
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, pandas as pd
+          root=pathlib.Path('/tmp/final')
+          s=json.load(open(root/'summary.json'))
+          assert s['status']=='MANUSCRIPT_READY_FOUR_FAMILY_ZERO_INFERENCE_SYNTHESIS',s
+          assert s['paid_inference_performed'] is False
+          assert s['respondent_level_plaintext_emitted'] is False
+          assert s['legacy_point_estimates_replaced_by_common_engine'] is True
+          assert s['integrity']['luna']=={'luna_thin':1000,'luna_rich':1000}
+          assert s['integrity']['claude']=={'claude_thin':250,'claude_rich':250}
+          c=pd.read_csv(root/'contrasts.csv')
+          for name in ['luna_rich_minus_thin','claude_rich_minus_thin','qwen_medium_minus_off','deepseek_rich_high_minus_off','deepseek_persona_x_reasoning_interaction','deepseek_minus_qwen_reasoning_effect']:
+              assert name in set(c.contrast), name
+          for name in ['luna_rich_minus_thin','claude_rich_minus_thin']:
+              x=c[c.contrast.eq(name)]
+              assert len(x)==5 and x[['ci_low','ci_high']].notna().all().all(),x
+          cells=pd.read_csv(root/'cell_metrics.csv')
+          assert len(cells)==15,cells
+          assert cells[cells.method_class.eq('LLM')]['joint_tv'].notna().all(),cells
+          forbidden=[]
+          for p in root.rglob('*'):
+              if p.is_file() and (p.suffix in {'.jsonl','.b64','.enc'} or 'raw' in p.name.lower()): forbidden.append(str(p))
+          assert not forbidden, forbidden
+          m=json.load(open(root/'MANIFEST.json'))
+          assert m['respondent_level_plaintext_in_package'] is False
+          print('FINAL_FOUR_FAMILY_AGGREGATE_GATE_PASS')
+          PY
+
+      - name: Commit publication-safe aggregate package
+        run: |
+          set -euo pipefail
+          rm -rf analysis_final/results
+          mkdir -p analysis_final/results
+          cp -a /tmp/final/. analysis_final/results/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add analysis_final/results
+          if ! git diff --cached --quiet; then
+            git commit -m 'Freeze four-family aggregate results'
+            git push origin HEAD:main
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
-          name: final-unified-zero-inference
+          name: final-unified-four-family-zero-inference-${{ github.run_id }}
           path: /tmp/final/
           retention-days: 90
+          if-no-files-found: error
