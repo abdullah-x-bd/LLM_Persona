@@ -8,11 +8,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: read
+  contents: write
 
 env:
-  GH_TOKEN: ${{ github.token }}
+  FIGURE_DIR: /tmp/figures
 
 jobs:
   figures:
@@ -20,6 +19,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
@@ -34,24 +35,91 @@ jobs:
             any::ggrepel
             any::patchwork
             any::svglite
-      - name: Download final unified aggregate artifact
+
+      - name: Validate canonical aggregate inputs
         run: |
-          mkdir -p /tmp/unified /tmp/figures
-          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9781212067/zip > /tmp/unified.zip
-          unzip -q /tmp/unified.zip -d /tmp/unified
-          test -f /tmp/unified/cell_metrics.csv
-          test -f /tmp/unified/contrasts.csv
+          set -euo pipefail
+          test -f analysis_final/results/MANIFEST.json
+          test -f analysis_final/results/cell_metrics.csv
+          test -f analysis_final/results/contrasts.csv
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('analysis_final/results/summary.json')
+          s=json.loads(p.read_text())
+          assert s['status']=='MANUSCRIPT_READY_FOUR_FAMILY_ZERO_INFERENCE_SYNTHESIS',s
+          assert s['paid_inference_performed'] is False
+          assert s['legacy_point_estimates_replaced_by_common_engine'] is True
+          print('CANONICAL_AGGREGATE_INPUT_GATE_PASS')
+          PY
+
       - name: Generate title-free publication figures
-        run: Rscript analysis_final/figures.R /tmp/unified /tmp/figures
+        run: |
+          set -euo pipefail
+          rm -rf "$FIGURE_DIR"
+          mkdir -p "$FIGURE_DIR"
+          Rscript analysis_final/figures.R analysis_final/results "$FIGURE_DIR"
+
       - name: Figure integrity gate
         run: |
-          test "$(find /tmp/figures -name '*.png' | wc -l)" -eq 8
-          test "$(find /tmp/figures -name '*.pdf' | wc -l)" -eq 8
-          test "$(find /tmp/figures -name '*.svg' | wc -l)" -eq 8
-          grep -q fig01_micro_macro /tmp/figures/FIGURE_INDEX.txt
-          ls -lh /tmp/figures
+          set -euo pipefail
+          test "$(find "$FIGURE_DIR" -maxdepth 1 -name '*.png' | wc -l)" -eq 8
+          test "$(find "$FIGURE_DIR" -maxdepth 1 -name '*.pdf' | wc -l)" -eq 8
+          test "$(find "$FIGURE_DIR" -maxdepth 1 -name '*.svg' | wc -l)" -eq 8
+          test "$(wc -l < "$FIGURE_DIR/FIGURE_INDEX.txt")" -eq 8
+          grep -q 'fig01_micro_macro' "$FIGURE_DIR/FIGURE_INDEX.txt"
+          grep -q 'fig08_outcome_effects' "$FIGURE_DIR/FIGURE_INDEX.txt"
+          grep -q 'dpi = 600' analysis_final/figures.R
+          ! grep -E '\bggtitle[[:space:]]*\(' analysis_final/figures.R
+          find "$FIGURE_DIR" -maxdepth 1 -type f -size -1000c -print -quit | grep -q '^$' || true
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path('/tmp/figures')
+          names=[x.strip() for x in (root/'FIGURE_INDEX.txt').read_text().splitlines() if x.strip()]
+          assert len(names)==8 and len(set(names))==8,names
+          expected={f'{name}.{ext}' for name in names for ext in ('pdf','svg','png')}
+          actual={p.name for p in root.iterdir() if p.suffix in {'.pdf','.svg','.png'}}
+          assert actual==expected,(sorted(expected-actual),sorted(actual-expected))
+          files={}
+          for name in sorted(expected):
+              p=root/name
+              assert p.stat().st_size>1000,(name,p.stat().st_size)
+              files[name]={'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size}
+          rmanifest=Path('analysis_final/results/MANIFEST.json')
+          manifest={
+              'status':'FINAL_PUBLICATION_FIGURE_PACKAGE',
+              'figure_workflow_run_id':int(os.environ['GITHUB_RUN_ID']),
+              'figure_source_commit_sha':os.environ['GITHUB_SHA'],
+              'results_manifest_sha256':hashlib.sha256(rmanifest.read_bytes()).hexdigest(),
+              'png_dpi':600,
+              'plot_titles':False,
+              'figure_names':names,
+              'files':files,
+          }
+          (root/'MANIFEST.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print('FINAL_FIGURE_INTEGRITY_PASS')
+          PY
+
+      - name: Commit final figure package
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B final-figures origin/main
+          rm -rf analysis_final/figures
+          mkdir -p analysis_final/figures
+          cp -a "$FIGURE_DIR"/. analysis_final/figures/
+          git add analysis_final/figures
+          if ! git diff --cached --quiet; then
+            git commit -m 'Freeze final publication figure package'
+            git push origin HEAD:main
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
-          name: final-publication-figures-r
+          name: final-publication-figures-r-${{ github.run_id }}
           path: /tmp/figures/
           retention-days: 90
+          if-no-files-found: error
