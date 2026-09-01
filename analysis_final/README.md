@@ -1,6 +1,6 @@
 # Final zero-inference analysis
 
-This directory is the canonical pre-manuscript analysis layer for **Better synthetic individuals do not make better synthetic populations**.
+This directory is the canonical publication analysis layer for **Better synthetic individuals do not make better synthetic populations**.
 
 No file in this layer performs paid LLM inference.
 
@@ -37,16 +37,16 @@ The final result package contains aggregate statistics only. It contains no resp
 
 ## Four-family harmonization
 
-The canonical synthesis now re-reads the authoritative completed outputs for all four LLM families:
+The canonical synthesis re-reads the authoritative completed outputs for all four LLM families:
 
 - Luna: 1,000 respondents in thin and rich conditions;
 - Claude: 250 respondents in thin and rich conditions;
 - Qwen: 1,000 respondents in off, low, and medium reasoning conditions;
 - DeepSeek: 1,000 respondents in thin/off, thin/high, rich/off, and rich/high cells.
 
-All primary cross-study contrasts use 10,000 paired respondent bootstrap replicates where paired respondent-level outputs are available. Luna and Claude are therefore no longer represented only by carried-forward point estimates in the final package.
+All primary cross-study contrasts use 10,000 paired respondent bootstrap replicates where paired respondent-level outputs are available. Luna and Claude are therefore recomputed under the same final metric engine rather than represented only by historical point estimates.
 
-The original study-specific frozen analyses remain authoritative for their preregistered primary claims. The common-engine layer is authoritative for the final cross-study comparisons and figures.
+The original study-specific frozen analyses remain authoritative for their preregistered primary claims. The common-engine layer is authoritative for the final cross-study comparisons and publication figures.
 
 ## Supervised comparators
 
@@ -63,12 +63,16 @@ These are **cross-fitted supervised comparators**. They use outcome-labeled trai
 
 Historical respondent-level generation outputs remain encrypted in their original Actions artifacts. The final harmonization workflow decrypts completed outputs only transiently in CI, after generation, and emits only aggregate files. CAMS truth is joined only during analysis. No final workflow calls an LLM inference endpoint.
 
-For manuscript preparation, begin with:
+## Reproducibility entry points
 
-- `results/summary.json`
-- `results/contrasts.csv`
-- `results/MANIFEST.json`
-- `figures/`
-- `../docs/REPO_WIDE_RESULTS_SYNTHESIS.md`
-- `../docs/PRE_MANUSCRIPT_AUDIT.md`
-- `../docs/FINAL_PROVENANCE.md`
+Start with:
+
+- `results/summary.json` for final machine-readable status;
+- `results/contrasts.csv` for paired effects and confidence intervals;
+- `results/MANIFEST.json` for result-package integrity;
+- `figures/` for the final publication figure package;
+- `../docs/REPO_WIDE_RESULTS_SYNTHESIS.md` for the complete empirical synthesis;
+- `../docs/FINAL_PROVENANCE.md` for authoritative provenance;
+- `../docs/PRE_MANUSCRIPT_AUDIT.md` for the historical scientific freeze audit.
+
+Run `python analysis_final/final_qa.py` from the repository root to verify the committed publication package.
