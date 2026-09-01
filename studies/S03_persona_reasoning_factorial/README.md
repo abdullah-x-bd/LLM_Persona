@@ -1,32 +1,22 @@
 # S03 Persona × reasoning factorial
 
-**Question:** Does reasoning interact with how much factual respondent information the model receives?
+**Status: COMPLETE AND ANALYZED.**
 
-## Frozen design
+Population: the same 1,000 frozen CAMS respondents as S01. Model: `deepseek/deepseek-v4-flash-0731`. Final provider: **OpenInference FP8**, fallbacks disabled, provider data collection `deny`, no human truth during generation.
 
-Population: the same 1,000 frozen CAMS respondents used in S01.
+The complete 2 × 2 design is thin/off, thin/high, rich/off, and rich/high. S03 generated only the two thin cells; the rich cells are the exact S01 outputs.
 
-Model: `deepseek/deepseek-v4-flash-0731`, AkashML only, fallbacks disabled, provider data collection `deny`.
+All four cells contain 1,000 respondents. Key cell metrics:
 
-The complete 2 × 2 design is:
+| Cell | Brier | Hard accuracy | Probability MAE | Hard MAE |
+|---|---:|---:|---:|---:|
+| thin/off | 0.2239 | 71.28% | 14.07 pp | 21.37 pp |
+| thin/high | 0.1885 | 76.42% | 6.22 pp | 9.34 pp |
+| rich/off | 0.2049 | 73.32% | 12.75 pp | 20.27 pp |
+| rich/high | 0.1869 | 77.69% | 6.99 pp | 3.60 pp |
 
-- thin persona, reasoning off
-- thin persona, reasoning high
-- rich persona, reasoning off
-- rich persona, reasoning high
+The Brier persona × reasoning interaction is **+0.01743**, 95% CI [+0.00327, +0.03154]. The hard-prevalence interaction is approximately **-4.64 pp**, 95% CI [-6.32, -1.72]. Thus reasoning partly substitutes for persona information at the individual probabilistic level while complementing rich information for categorical population reconstruction.
 
-Only the two thin cells are new paid inference in S03. The rich/off and rich/high cells are the exact S01 outputs and must be reused, not regenerated.
+Joint structure also changes strongly: rich/off has entropy 1.307 bits and TV distance 0.626 from the human distribution, while rich/high has entropy 2.298 bits and TV 0.190. Human entropy is 2.486 bits.
 
-DeepSeek uses `high` because live preflight verified supported efforts `low`, `high`, and `max`. The earlier GPT-OSS candidate was rejected before paid inference because its reasoning is currently mandatory on OpenRouter and therefore cannot support an off arm.
-
-## Primary estimand
-
-The main confirmatory estimand is the persona × reasoning interaction, calculated as the paired difference-in-differences rather than inferred from separate significance tests. It is evaluated for individual Brier, probability-prevalence MAE, hard prevalence MAE, and hard accuracy, with joint-distribution and subgroup metrics as secondary analyses.
-
-Mechanism hypothesis frozen prospectively: reasoning may rely more strongly on learned population priors when factual persona information is sparse, so the reasoning effect may differ between thin and rich profiles.
-
-## Cost and readiness
-
-The validated live AkashML hard single-pass ceiling for the 2,000 new thin-cell requests was **$0.430298** on 31 August 2026. Registered S03 cap: **$0.85**. S01 costs are not counted again because its rich cells are reused.
-
-Static and live zero-cost preflight passed. Paid execution still requires a fresh live preflight plus literal manual authorization.
+Production run: `33406819430`. Final S03 artifact: `9765135867`. Full results are documented in `docs/DEEPSEEK_S01_S03_FACTORIAL_RESULTS.md`.
