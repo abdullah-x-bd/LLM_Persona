@@ -1,52 +1,64 @@
 # Better synthetic individuals do not make better synthetic populations
 
-This repository contains a multi-study audit of LLM population simulation against real Government of India CAMS survey respondents. The empirical program for the current manuscript is frozen. The statistical baselines, four-family harmonized analysis, durable aggregate result package, and final R publication figure suite are complete. No additional paid inference is required for the current paper.
+[![Final repository QA](https://github.com/abdullah-x-bd/LLM_Persona/actions/workflows/final_qa.yml/badge.svg)](https://github.com/abdullah-x-bd/LLM_Persona/actions/workflows/final_qa.yml)
 
-The central result is methodological: **improving synthetic individuals does not guarantee improving synthetic populations**. Individual predictive fidelity is not a sufficient proxy for population fidelity. Persona information, model identity, and inference-time reasoning can improve respondent-level prediction while changing population prevalence, hard categorical totals, joint response structure, subgroup patterns, or probability tails in different directions.
+A frozen research artifact for evaluating whether improvements in **individual-level LLM simulation** translate into improvements in **population-level fidelity**.
 
-This is a non-guarantee, not a universal claim that better individual prediction must make population reconstruction worse. DeepSeek provides an important counterexample in which high reasoning improves Brier and several population endpoints while worsening log loss through a heavier tail of confidently wrong probabilities.
+The central result is a non-guarantee: **improving synthetic individuals does not guarantee improving synthetic populations**. Across persona interventions, inference-time reasoning, multiple model families, and multiple population estimands, individual predictive fidelity and population fidelity can move together or in opposite directions.
 
-## Frozen truth-linked CAMS evidence
+This repository contains the completed analysis code, aggregate result tables, final R figures, study registry, provenance records, and machine-readable integrity checks for the frozen evidence package.
 
-| Study | Model | Design | n | Final status |
-|---|---|---|---:|---|
-| Persona information | GPT-5.6 Luna | thin vs rich | 1,000 paired | complete |
-| Persona robustness | Claude Sonnet 5 | thin vs rich | 250 paired | complete |
-| Reasoning | Qwen3.8-27B | off / low / medium | 1,000 paired | complete |
-| S01 reasoning replication | DeepSeek V4 Flash 0731 | rich/off vs rich/high | 1,000 paired | complete |
-| S03 factorial | DeepSeek V4 Flash 0731 | thin/rich × off/high | 1,000 | complete |
-| Supervised references | prevalence, logistic, gradient boosting, random forest | 10-fold cross-fitted | 1,000 | complete |
+## What is novel here
 
-S01 and S03 generation used OpenInference FP8, provider fallback disabled, provider data collection `deny`, and no CAMS truth during generation. Historical respondent-level outputs remain encrypted; truth enters only during post-generation analysis.
+Prior work has established that LLM-generated populations can fail to reproduce real population distributions. This project tests a narrower question directly: **when a controlled intervention makes the same synthetic respondents better at matching their corresponding human respondents, does the reconstructed population also improve?**
 
-## Headline harmonized findings
+The answer depends on the model and the estimand. The same intervention can improve respondent-level Brier score while worsening population prevalence, improve one representation of prevalence while worsening another, or improve average probability error while creating a heavier tail of confidently wrong predictions.
 
-- **Luna rich vs thin:** Brier improves by 0.0187, but hard-prevalence MAE worsens by about 3.20 percentage points. The probability-prevalence change is uncertain.
-- **Claude rich vs thin:** Brier, log loss, accuracy, and hard-prevalence MAE improve, while probability-prevalence MAE worsens by about 1.06 percentage points.
-- **Qwen medium reasoning vs off:** Brier and log loss improve, but hard accuracy falls and probability- and hard-prevalence MAE worsen.
-- **DeepSeek high reasoning vs off under rich personas:** Brier, hard accuracy, both prevalence endpoints, and joint population structure improve strongly, while log loss worsens by about 0.419 because extreme wrong probabilities become much more common.
-- **Direct model × reasoning test:** DeepSeek and Qwen reasoning effects differ strongly on log loss, accuracy, probability-prevalence MAE, and hard-prevalence MAE. The Brier interaction itself crosses zero.
-- **DeepSeek factorial:** reasoning improves individual Brier more under thin personas, while rich persona information significantly complements reasoning for hard population reconstruction.
-- **Supervised references:** the best model depends on the estimand. No single comparator is best on Brier, marginal prevalence, hard prevalence, and joint-distribution fidelity simultaneously.
+The practical implication is simple: **synthetic respondents should be validated against the population-level quantity for which they will actually be used.** Person-level accuracy alone is not sufficient evidence of population validity.
 
-The final detailed synthesis is in `docs/REPO_WIDE_RESULTS_SYNTHESIS.md`.
+## Evidence base
 
-## Canonical manuscript package
+The truth-linked empirical program uses the Government of India Comprehensive Annual Modular Survey (CAMS), NSS 79th Round 2022–23.
 
-`analysis_final/` is the final zero-inference analysis layer.
+| Evidence family | Model | Design | Respondents |
+|---|---|---|---:|
+| Persona information | GPT-5.6 Luna | thin vs rich | 1,000 paired |
+| Persona robustness | Claude Sonnet 5 | thin vs rich | 250 paired |
+| Reasoning | Qwen3.8-27B | off / low / medium | 1,000 paired |
+| Reasoning replication | DeepSeek V4 Flash 0731 | rich/off vs rich/high | 1,000 paired |
+| Persona × reasoning factorial | DeepSeek V4 Flash 0731 | thin/rich × off/high | 1,000 |
+| Supervised references | prevalence, logistic, gradient boosting, random forest | 10-fold cross-fitted | 1,000 |
 
-Use these committed directories as the durable manuscript sources:
+The final common engine harmonizes **11 completed LLM cells**, uses survey weights throughout, and estimates paired contrasts with **10,000 respondent bootstrap replicates** where paired outputs are available.
 
-- `analysis_final/results/` for the final aggregate-only four-family analysis tables and checksum manifest;
-- `analysis_final/figures/` for the eight final figures in PDF, SVG, and 600-dpi PNG plus checksum manifest.
+## Headline findings
 
-The canonical cross-study engine is `analysis_final/unified_analysis.py`. It reconstructs all 11 completed LLM cells from the authoritative completed outputs and uses one common metric implementation with 10,000 paired respondent bootstrap replicates.
+- **Luna rich vs thin:** respondent-level Brier improves by 0.0187, while hard-prevalence MAE worsens by about 3.20 percentage points.
+- **Claude rich vs thin:** Brier, log loss, hard accuracy, and hard-prevalence MAE improve, while probability-prevalence MAE worsens by about 1.06 percentage points.
+- **Qwen medium reasoning vs off:** Brier and log loss improve, while hard accuracy and both prevalence-error measures worsen.
+- **DeepSeek high reasoning vs off under rich personas:** Brier, hard accuracy, both prevalence endpoints, and joint population structure improve, while log loss worsens because highly confident wrong predictions become more common.
+- **Direct Qwen-versus-DeepSeek reasoning interaction:** reasoning effects differ strongly across model families for log loss, hard accuracy, probability-prevalence MAE, and hard-prevalence MAE.
+- **DeepSeek factorial:** reasoning improves Brier more under thin personas, while rich persona information complements reasoning for hard population reconstruction.
+- **Supervised references:** model ranking changes with the validation target. No single method dominates Brier, prevalence, hard-population, and joint-distribution fidelity.
 
-The supervised models are **cross-fitted supervised comparators**, not information-regime-equivalent substitutes for zero-shot synthetic respondents.
+For exact estimates and confidence intervals, see [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) and [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv).
+
+## Canonical research artifact
+
+The public, durable publication package lives under [`analysis_final/`](analysis_final/).
+
+- [`analysis_final/results/`](analysis_final/results/) contains aggregate-only final result tables and a SHA-256 manifest.
+- [`analysis_final/figures/`](analysis_final/figures/) contains the eight final figures in PDF, SVG, and 600-dpi PNG, with a separate checksum manifest.
+- [`analysis_final/unified_analysis.py`](analysis_final/unified_analysis.py) is the canonical four-family common metric engine.
+- [`analysis_final/baselines.py`](analysis_final/baselines.py) implements the cross-fitted supervised reference models.
+- [`analysis_final/figures.R`](analysis_final/figures.R) generates the final figure suite.
+- [`analysis_final/final_qa.py`](analysis_final/final_qa.py) validates the frozen result, figure, documentation, and privacy boundary.
+
+The authoritative final provenance record is [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md).
 
 ## Final figure suite
 
-The validated R/ggplot2 package contains:
+The R/ggplot2 publication package contains:
 
 1. micro-versus-macro fidelity map;
 2. Qwen-versus-DeepSeek reasoning reversal;
@@ -57,59 +69,136 @@ The validated R/ggplot2 package contains:
 7. DeepSeek confidence-tail trade-off;
 8. outcome-level reasoning-effect heatmap.
 
-The final figure workflow run `33459804925` passed rendering, integrity checks, repository freeze, and artifact upload. The figures contain no embedded plot titles.
+All PNGs are rendered at 600 dpi. No plot title is embedded in the artwork.
 
-## Current paper boundary
+## Reproducibility and integrity
 
-- **S01** complete and analyzed.
-- **S03** complete and analyzed.
-- **S02** archived as an unrun prospective length-safe replication and excluded from the current paper.
-- **S04** scientifically blocked because the matched PLFS truth asset is absent and excluded from current truth-linked evidence.
-- **S05** archived as an unrun prospective fresh-holdout extension and excluded from the current paper.
+The durable publication package is deliberately aggregate-only. Historical respondent-level generation outputs remain encrypted and are not committed as final plaintext artifacts. Human CAMS outcome truth is kept out of generation and is joined only during post-generation analysis.
 
-CMS and PLFS synthetic-output branches remain useful for provenance and model-instability analyses, but they must not be described as truth-linked accuracy validations without matched truth assets.
+The final common-engine package records:
 
-Historical paid, repair, recovery, and provider-engineering workflows are intentionally retained as provenance. Their presence does not imply that more inference should be launched.
+- 1,000 CAMS truth respondents;
+- 250 respondents in the frozen Claude robustness subset;
+- 11 completed LLM cells;
+- 10,000 bootstrap replicates;
+- bootstrap seed `3108202691`;
+- no paid LLM inference in final harmonization;
+- no respondent-level plaintext in the durable result package.
 
-## Evaluation hierarchy
+Both result and figure directories contain file-level SHA-256 manifests. The final QA workflow rechecks package integrity and the zero-inference boundary.
 
-Population fidelity is treated as a vector rather than a single score. The final package evaluates:
+### Verify the committed publication package
 
-- survey-weighted Brier score and log loss;
-- hard-response accuracy;
-- probability- and hard-prevalence MAE;
-- probability extremeness and catastrophic tails;
-- subgroup and age fidelity;
-- six-outcome response-pattern entropy;
-- total-variation and Jensen-Shannon distance;
-- hard-response correlation structure;
-- outcome-level treatment effects.
+Python 3.12 is used by the final QA workflow.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install pandas
+python analysis_final/final_qa.py
+```
+
+A successful run ends with:
+
+```text
+FINAL_REPO_QA_PASS
+```
+
+### Regenerate the figures from committed aggregate results
+
+The figure script uses R with `ggplot2`, `dplyr`, `tidyr`, `readr`, `scales`, `ggrepel`, `patchwork`, and `svglite`.
+
+```bash
+Rscript analysis_final/figures.R analysis_final/results analysis_final/figures_rebuilt
+```
+
+This route reads only the committed aggregate result package.
+
+## Data
+
+The human benchmark is the **Comprehensive Annual Modular Survey (CAMS), NSS 79th Round 2022–23**, produced by the National Sample Survey Office, Ministry of Statistics and Programme Implementation, Government of India.
+
+Reference: `DDI-IND-MOSPI-NSSO-CAMS22-23`.
+
+The official anonymized microdata are available to registered users through the MoSPI Microdata Portal, subject to its access terms: <https://microdata.gov.in/>.
+
+This repository does not redistribute respondent-level matched human and LLM records in plaintext.
+
+## Frozen study boundary
+
+The machine-readable study boundary is [`studies/registry.json`](studies/registry.json).
+
+- **S01:** complete and analyzed.
+- **S03:** complete and analyzed.
+- **S02:** archived unrun prospective study, not required for the frozen evidence package.
+- **S04:** scientifically blocked because matched PLFS truth is unavailable and excluded from truth-linked claims.
+- **S05:** archived unrun prospective study, not required for the frozen evidence package.
+
+Historical CMS and PLFS branches remain in the repository for provenance and engineering history. They are not part of the final truth-linked accuracy evidence without matched truth assets.
 
 ## Repository map
 
 ```text
 LLM_Persona/
 ├── README.md
+├── CITATION.cff                    # machine-readable citation metadata
+├── requirements.txt
 ├── analysis_final/
-│   ├── results/                 # canonical aggregate manuscript results
-│   ├── figures/                 # final PDF/SVG/600-dpi PNG figures
-│   └── final analysis + QA code
-├── docs/                        # final synthesis, provenance, audit, historical design
-├── studies/                     # frozen S01-S05 records and machine registry
+│   ├── results/                    # canonical aggregate publication results
+│   ├── figures/                    # final PDF/SVG/600-dpi PNG figures
+│   ├── unified_analysis.py         # canonical cross-study engine
+│   ├── baselines.py                # cross-fitted supervised references
+│   ├── figures.R                   # publication figure generation
+│   └── final_qa.py                 # integrity/privacy/release gate
+├── docs/
+│   ├── REPO_WIDE_RESULTS_SYNTHESIS.md
+│   ├── FINAL_PROVENANCE.md
+│   ├── PRE_MANUSCRIPT_AUDIT.md
+│   ├── REPO_MAP.md
+│   ├── RELEASE_NOTES_v1.0.0.md
+│   └── RELEASE_CHECKLIST.md
+├── studies/                        # frozen study registry and follow-up provenance
 ├── reasoning_population_fidelity/ # completed Qwen reasoning study
-├── src/                         # historical CAMS/CMS/PLFS runtime and analysis
-├── data/encrypted/              # encrypted reproducibility assets
-└── .github/workflows/           # historical provenance + final zero-inference workflows
+├── src/                            # historical runtime and analysis infrastructure
+├── data/encrypted/                 # encrypted reproducibility assets
+└── .github/workflows/              # historical and final zero-inference workflows
 ```
 
-For manuscript preparation, start with:
+## Documentation guide
 
-- `docs/PRE_MANUSCRIPT_AUDIT.md`
-- `docs/REPO_WIDE_RESULTS_SYNTHESIS.md`
-- `docs/FINAL_PROVENANCE.md`
-- `analysis_final/README.md`
-- `analysis_final/results/summary.json`
-- `analysis_final/results/contrasts.csv`
-- `analysis_final/figures/`
+For the shortest path through the repository:
 
-The repository is intended to be treated as a frozen evidence package after the final machine QA workflow passes. Any future reviewer-driven extension should be recorded as new work rather than silently changing the current manuscript evidence boundary.
+1. [`analysis_final/results/summary.json`](analysis_final/results/summary.json) for machine-readable final status and provenance;
+2. [`docs/REPO_WIDE_RESULTS_SYNTHESIS.md`](docs/REPO_WIDE_RESULTS_SYNTHESIS.md) for the full empirical synthesis;
+3. [`analysis_final/results/contrasts.csv`](analysis_final/results/contrasts.csv) for paired effects and confidence intervals;
+4. [`analysis_final/figures/`](analysis_final/figures/) for the final publication figures;
+5. [`docs/FINAL_PROVENANCE.md`](docs/FINAL_PROVENANCE.md) for authoritative runs, artifacts, seeds, and privacy guarantees;
+6. [`docs/PRE_MANUSCRIPT_AUDIT.md`](docs/PRE_MANUSCRIPT_AUDIT.md) for the historical scientific freeze audit.
+
+## Citation
+
+Citation metadata are provided in [`CITATION.cff`](CITATION.cff). The repository is being prepared as the stable `v1.0.0` research artifact. Until the companion article receives its final bibliographic record, cite the tagged repository release when using the code, figures, or aggregate results.
+
+A release-ready BibTeX form is:
+
+```bibtex
+@software{abdullah_x_llm_persona_2026,
+  author  = {Abdullah X},
+  title   = {Better synthetic individuals do not make better synthetic populations: research artifact},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/abdullah-x-bd/LLM_Persona}
+}
+```
+
+After a formal article DOI is available, this section and `CITATION.cff` should be updated to make the published paper the preferred citation.
+
+## Release policy
+
+The frozen scientific evidence should not be silently rewritten after `v1.0.0`. Reviewer-driven or later scientific extensions should receive new provenance records and a new version rather than changing the evidentiary meaning of the original release.
+
+The ready-to-paste release notes and release checklist are in [`docs/RELEASE_NOTES_v1.0.0.md`](docs/RELEASE_NOTES_v1.0.0.md) and [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+
+## License
+
+No explicit reuse license has been selected yet. Public visibility alone does not grant an open-source reuse license. A license should be chosen before publishing the `v1.0.0` release.
