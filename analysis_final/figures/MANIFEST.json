@@ -1,0 +1,116 @@
+{
+  "figure_names": [
+    "fig01_micro_macro",
+    "fig02_reasoning_reversal",
+    "fig03_deepseek_factorial",
+    "fig04_age_gradient",
+    "fig05_population_fingerprint",
+    "fig06_fidelity_landscape",
+    "fig07_overconfidence",
+    "fig08_outcome_effects"
+  ],
+  "figure_source_commit_sha": "e4f0002ab885b6653ea97993a0d36c94a1f32772",
+  "figure_workflow_run_id": 33459804925,
+  "files": {
+    "fig01_micro_macro.pdf": {
+      "bytes": 12241,
+      "sha256": "c1342cc5fe012fe1239c4ce2695f2e6d130d88bd7acb4d2bdc9d307bd157f3f3"
+    },
+    "fig01_micro_macro.png": {
+      "bytes": 150976,
+      "sha256": "5b681ac237175950df7bb0abf35453812c1b9925910639e636cacabeaad340c3"
+    },
+    "fig01_micro_macro.svg": {
+      "bytes": 5983,
+      "sha256": "a424f29411c74dd409dde1b662680d709fd668bc3d6558d73d9e0425b52f30c3"
+    },
+    "fig02_reasoning_reversal.pdf": {
+      "bytes": 18671,
+      "sha256": "8150296209511534c376891a37da6f9b2403eb183992f544dc7becfe98bc212a"
+    },
+    "fig02_reasoning_reversal.png": {
+      "bytes": 146085,
+      "sha256": "a2d3f6869123a6f7a4cfa574b3ea6a021ea1eb9addd97964285f1276538fa8c9"
+    },
+    "fig02_reasoning_reversal.svg": {
+      "bytes": 14539,
+      "sha256": "a6f33ea72a43ad1da3ed11ee050ef7d06e9055d2b5256be6a0fe646c745850a9"
+    },
+    "fig03_deepseek_factorial.pdf": {
+      "bytes": 16457,
+      "sha256": "a3b6537e1a46d48d79c60675220979a88a152ec78798e2a1e5f8357ec644349d"
+    },
+    "fig03_deepseek_factorial.png": {
+      "bytes": 246869,
+      "sha256": "1ad56052852ee82bc7492cfb305dbd5e12878902a551113320d33a5d7f375550"
+    },
+    "fig03_deepseek_factorial.svg": {
+      "bytes": 8144,
+      "sha256": "468fbe5cdc9a8879cb4da9187cfdced64c43cef87797cec1c24b39f74091bd9c"
+    },
+    "fig04_age_gradient.pdf": {
+      "bytes": 14534,
+      "sha256": "2278479e99187d156f8f36f4a67e4bfea9de137ff33b7b7e2cf461fb07bcd836"
+    },
+    "fig04_age_gradient.png": {
+      "bytes": 247434,
+      "sha256": "63f3497703215e90bf51bfa4b4e1ae62931438798e8213ab3b13cd7b7778f107"
+    },
+    "fig04_age_gradient.svg": {
+      "bytes": 7583,
+      "sha256": "5f4de3756921f2aede41f6828e91adc4a4b85bb1c39e2f3924f6577fc5b49868"
+    },
+    "fig05_population_fingerprint.pdf": {
+      "bytes": 15552,
+      "sha256": "05b47639db95ea9c96c8e2957ca1dce0be908d274a40d0db5b23e41c8f8d0d4a"
+    },
+    "fig05_population_fingerprint.png": {
+      "bytes": 294530,
+      "sha256": "5a3744a662ae7aadbc3a232054ec4594850cb0d2f753b42bc3874fd456da57cb"
+    },
+    "fig05_population_fingerprint.svg": {
+      "bytes": 32593,
+      "sha256": "32f786d68de61e42a67faeddf5f26c3aa58036cd581a7825472825ae2c8fde96"
+    },
+    "fig06_fidelity_landscape.pdf": {
+      "bytes": 14875,
+      "sha256": "35306b20c847cac53f0b5969c873480923f8fad4aeb3094ca1bb7430154c7ab1"
+    },
+    "fig06_fidelity_landscape.png": {
+      "bytes": 242640,
+      "sha256": "b283488f587ad8e6a9a669d358cf71ec61a73940e9d787634db71811b5528aed"
+    },
+    "fig06_fidelity_landscape.svg": {
+      "bytes": 8238,
+      "sha256": "363302f5059e6751a3dcaeea23904866aabd11c686f1d976963c6e14f89fab0c"
+    },
+    "fig07_overconfidence.pdf": {
+      "bytes": 16484,
+      "sha256": "ec6217977c37d9930df3e489bb1ff8b35318ed6acf9c9788880285fca64b62b1"
+    },
+    "fig07_overconfidence.png": {
+      "bytes": 187034,
+      "sha256": "99cff1b9dcbed0bda6a409b315b6489f6a352bbcda3d0c1ee02f7a4fc34bb6d0"
+    },
+    "fig07_overconfidence.svg": {
+      "bytes": 10018,
+      "sha256": "712d0d6a5ba1d94fc23bdc0e4f1f52f0f56e9b2e7e7913467d26d9e776c5f3ac"
+    },
+    "fig08_outcome_effects.pdf": {
+      "bytes": 15919,
+      "sha256": "ed20aa129613be39dc8472e490662a465f4a1fa50828d8dfc3239e6165eed54f"
+    },
+    "fig08_outcome_effects.png": {
+      "bytes": 226325,
+      "sha256": "dc639ba3b89a275581843839b87225c42940df4c64f3ba3e1ddd9e0808e31967"
+    },
+    "fig08_outcome_effects.svg": {
+      "bytes": 19120,
+      "sha256": "7e68b6fdf291f72048633432c57fc27a03a3c3a117e396e1be8ee1676bfaf2ab"
+    }
+  },
+  "plot_titles": false,
+  "png_dpi": 600,
+  "results_manifest_sha256": "617b4a2caa7c614da43ceb5cf6b756102ffeddea6b252f52ff1d6ff5d6e67ce2",
+  "status": "FINAL_PUBLICATION_FIGURE_PACKAGE"
+}

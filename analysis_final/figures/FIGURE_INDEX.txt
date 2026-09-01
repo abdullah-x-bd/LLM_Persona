@@ -1,0 +1,8 @@
+fig01_micro_macro
+fig02_reasoning_reversal
+fig03_deepseek_factorial
+fig04_age_gradient
+fig05_population_fingerprint
+fig06_fidelity_landscape
+fig07_overconfidence
+fig08_outcome_effects
