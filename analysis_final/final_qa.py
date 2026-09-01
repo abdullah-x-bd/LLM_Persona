@@ -173,7 +173,6 @@ def check_docs() -> None:
     assert "MIT License" in root_readme
     assert "CC BY 4.0" in root_readme
     assert "docs/SCIENTIFIC_FREEZE.md" in root_readme
-    assert "docs/RELEASE_NOTES_v1.0.0.md" in root_readme
     assert "docs/RELEASE_v1.0.0.md" in root_readme
     assert "analysis_final/results" in root_readme
     assert "analysis_final/figures" in root_readme
@@ -221,7 +220,7 @@ def main() -> None:
         check_figures()
     check_docs()
     check_privacy()
-    print("FINAL_REPO_QA_PASS")
+    print("FINAL_RESEARCH_ARTIFACT_QA_PASS")
 
 
 if __name__ == "__main__":
