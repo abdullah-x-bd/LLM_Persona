@@ -99,7 +99,7 @@ python analysis_final/final_qa.py
 A successful run ends with:
 
 ```text
-FINAL_REPO_QA_PASS
+FINAL_RESEARCH_ARTIFACT_QA_PASS
 ```
 
 ### Regenerate figures from committed aggregate results
