@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this repository, please cite the tagged research-artifact release. The published article citation will be added when a final bibliographic record is available."
+message: "If you use this research artifact, please cite version 1.0.0 using the metadata in this file."
 title: "Better synthetic individuals do not make better synthetic populations: research artifact"
 type: software
 version: 1.0.0
