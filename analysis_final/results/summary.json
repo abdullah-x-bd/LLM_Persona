@@ -1,0 +1,98 @@
+{
+  "analysis_commit_sha": "19623971ee288ad7c57b3d409887f0e7d4432d53",
+  "bootstrap_reps": 10000,
+  "bootstrap_seed": 3108202691,
+  "canonical_analysis": "analysis_final/unified_analysis.py",
+  "claude_subset_respondents": 250,
+  "durable_outputs_are_aggregate_only": true,
+  "harmonization_note": "Cross-study metrics are recomputed with one common metric implementation and 1e-6 log-loss clipping. Frozen study-specific analyses remain authoritative for their preregistered primary results.",
+  "harmonization_workflow_run_id": 33459342665,
+  "human_truth_respondents": 1000,
+  "integrity": {
+    "claude": {
+      "claude_rich": 250,
+      "claude_thin": 250
+    },
+    "deepseek": {
+      "deepseek_rich_high": 1000,
+      "deepseek_rich_off": 1000,
+      "deepseek_thin_high": 1000,
+      "deepseek_thin_off": 1000
+    },
+    "luna": {
+      "luna_rich": 1000,
+      "luna_thin": 1000
+    },
+    "qwen": {
+      "qwen_low": 1000,
+      "qwen_medium": 1000,
+      "qwen_off": 1000
+    }
+  },
+  "legacy_point_estimates_replaced_by_common_engine": true,
+  "llm_cells": 11,
+  "paid_inference_performed": false,
+  "respondent_level_plaintext_emitted": false,
+  "source_provenance": {
+    "claude": {
+      "conditions": [
+        "thin",
+        "rich"
+      ],
+      "model": "anthropic/claude-sonnet-5",
+      "production_run_id": 33286721946,
+      "raw_shards": 20,
+      "respondents": 250
+    },
+    "deepseek_s01": {
+      "artifact_id": 9763493454,
+      "conditions": [
+        "rich_off",
+        "rich_high"
+      ],
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "production_run_id": 33406819430,
+      "provider": "OpenInference FP8",
+      "respondents": 1000
+    },
+    "deepseek_s03": {
+      "artifact_id": 9765135867,
+      "conditions": [
+        "thin_off",
+        "thin_high"
+      ],
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "production_run_id": 33406819430,
+      "provider": "OpenInference FP8",
+      "respondents": 1000
+    },
+    "luna": {
+      "conditions": [
+        "thin",
+        "rich"
+      ],
+      "model": "openai/gpt-5.6-luna",
+      "production_run_id": 33284028509,
+      "raw_aggregate_artifact_id": 9723896566,
+      "respondents": 1000
+    },
+    "qwen": {
+      "artifact_id": 9750263228,
+      "conditions": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "model": "qwen/qwen3.8-27b",
+      "respondents": 1000
+    },
+    "supervised_baselines": {
+      "artifact_id": 9766982262,
+      "outer_folds": 10,
+      "respondents": 1000,
+      "workflow_run_id": 33415197392
+    }
+  },
+  "status": "MANUSCRIPT_READY_FOUR_FAMILY_ZERO_INFERENCE_SYNTHESIS",
+  "supervised_baseline_note": "Supervised comparators are cross-fitted reference points, not information-regime-equivalent substitutes for zero-shot LLM simulation."
+}

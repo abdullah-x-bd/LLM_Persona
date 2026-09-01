@@ -1,0 +1,31 @@
+contrast,first_cell,second_cell,metric,estimate,ci_low,ci_high,n,bootstrap_reps,direction_note
+luna_rich_minus_thin,luna_thin,luna_rich,individual_brier,-0.018658965917970005,-0.02417610349905294,-0.013330422676837069,1000,10000,
+luna_rich_minus_thin,luna_thin,luna_rich,log_loss,-0.05510379783868807,-0.07135792662289829,-0.03964286574914316,1000,10000,
+luna_rich_minus_thin,luna_thin,luna_rich,hard_accuracy,0.009669444877234645,-0.00016546600392709497,0.019837403470068883,1000,10000,
+luna_rich_minus_thin,luna_thin,luna_rich,probability_prevalence_mae,-0.005164935272739202,-0.022332638772361434,0.005032551991635527,1000,10000,
+luna_rich_minus_thin,luna_thin,luna_rich,hard_prevalence_mae,0.031971345863702344,0.02240319326584331,0.041296287326959134,1000,10000,
+claude_rich_minus_thin,claude_thin,claude_rich,individual_brier,-0.014565774171897194,-0.02537457584556555,-0.003834794270852926,250,10000,
+claude_rich_minus_thin,claude_thin,claude_rich,log_loss,-0.03296416652392692,-0.061386759633750294,-0.004868078118381117,250,10000,
+claude_rich_minus_thin,claude_thin,claude_rich,hard_accuracy,0.035975713262166864,0.012620108472299186,0.05929961785708547,250,10000,
+claude_rich_minus_thin,claude_thin,claude_rich,probability_prevalence_mae,0.010644498193592006,0.0009995350746750242,0.03233210950031506,250,10000,
+claude_rich_minus_thin,claude_thin,claude_rich,hard_prevalence_mae,-0.04411503843578514,-0.07135060526892535,-0.013596027764757422,250,10000,
+qwen_medium_minus_off,qwen_off,qwen_medium,individual_brier,-0.013180270051252024,-0.01883490456010519,-0.00767382422376033,1000,10000,
+qwen_medium_minus_off,qwen_off,qwen_medium,log_loss,-0.08561583934888461,-0.10424368584067295,-0.06738310125044975,1000,10000,
+qwen_medium_minus_off,qwen_off,qwen_medium,hard_accuracy,-0.017719727775572958,-0.026368424318794197,-0.008848253028323493,1000,10000,
+qwen_medium_minus_off,qwen_off,qwen_medium,probability_prevalence_mae,0.010225505421089381,0.003276783745165846,0.0179832717606181,1000,10000,
+qwen_medium_minus_off,qwen_off,qwen_medium,hard_prevalence_mae,0.03707645916660103,0.02890628818346286,0.04525936664242382,1000,10000,
+deepseek_rich_high_minus_off,deepseek_rich_off,deepseek_rich_high,individual_brier,-0.017959466477755898,-0.030874971337147925,-0.00483371119350053,1000,10000,
+deepseek_rich_high_minus_off,deepseek_rich_off,deepseek_rich_high,log_loss,0.4192673984861195,0.26528436883886125,0.5748512460983602,1000,10000,
+deepseek_rich_high_minus_off,deepseek_rich_off,deepseek_rich_high,hard_accuracy,0.04368256663445724,0.02652470886344107,0.060708388048092816,1000,10000,
+deepseek_rich_high_minus_off,deepseek_rich_off,deepseek_rich_high,probability_prevalence_mae,-0.057625787225319205,-0.08322951892767877,-0.03268351587446862,1000,10000,
+deepseek_rich_high_minus_off,deepseek_rich_off,deepseek_rich_high,hard_prevalence_mae,-0.16673994107231332,-0.1819034770019665,-0.1397630369509162,1000,10000,
+deepseek_persona_x_reasoning_interaction,thin reasoning effect,rich reasoning effect,individual_brier,0.01743454616177942,0.0031067757408636725,0.03138368887055934,1000,10000,(rich high-rich off) - (thin high-thin off)
+deepseek_persona_x_reasoning_interaction,thin reasoning effect,rich reasoning effect,log_loss,0.6015691827512344,0.4145402036938101,0.784973170202206,1000,10000,(rich high-rich off) - (thin high-thin off)
+deepseek_persona_x_reasoning_interaction,thin reasoning effect,rich reasoning effect,hard_accuracy,-0.007710378898415082,-0.024900891497468772,0.009785536858883132,1000,10000,(rich high-rich off) - (thin high-thin off)
+deepseek_persona_x_reasoning_interaction,thin reasoning effect,rich reasoning effect,probability_prevalence_mae,0.02080939798430563,-0.0048879421057692225,0.041659480344883856,1000,10000,(rich high-rich off) - (thin high-thin off)
+deepseek_persona_x_reasoning_interaction,thin reasoning effect,rich reasoning effect,hard_prevalence_mae,-0.04635510601799338,-0.06353104334163642,-0.017731201612739344,1000,10000,(rich high-rich off) - (thin high-thin off)
+deepseek_minus_qwen_reasoning_effect,Qwen medium-off,DeepSeek high-off,individual_brier,-0.004779196426503873,-0.019174434979580407,0.010109209808417036,1000,10000,DeepSeek reasoning effect - Qwen reasoning effect
+deepseek_minus_qwen_reasoning_effect,Qwen medium-off,DeepSeek high-off,log_loss,0.5048832378350041,0.35066124538218313,0.6618234019539831,1000,10000,DeepSeek reasoning effect - Qwen reasoning effect
+deepseek_minus_qwen_reasoning_effect,Qwen medium-off,DeepSeek high-off,hard_accuracy,0.0614022944100302,0.041880862655997816,0.08067990423410601,1000,10000,DeepSeek reasoning effect - Qwen reasoning effect
+deepseek_minus_qwen_reasoning_effect,Qwen medium-off,DeepSeek high-off,probability_prevalence_mae,-0.06785129264640859,-0.09079459670479337,-0.04516987048439737,1000,10000,DeepSeek reasoning effect - Qwen reasoning effect
+deepseek_minus_qwen_reasoning_effect,Qwen medium-off,DeepSeek high-off,hard_prevalence_mae,-0.20381640023891434,-0.22040727523197898,-0.1745503830972555,1000,10000,DeepSeek reasoning effect - Qwen reasoning effect

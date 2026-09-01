@@ -1,0 +1,115 @@
+{
+  "analysis_commit_sha": "19623971ee288ad7c57b3d409887f0e7d4432d53",
+  "bootstrap_reps": 10000,
+  "bootstrap_seed": 3108202691,
+  "created_by_workflow_run_id": 33459342665,
+  "files": {
+    "age_reasoning_effects.csv": {
+      "bytes": 4280,
+      "sha256": "24e3734b41ddc5935bf884fb374dd4eb40d42692e0643d4b922b75c968f44231"
+    },
+    "cell_metrics.csv": {
+      "bytes": 3958,
+      "sha256": "a8c53baaa93e042b98cf6655f3e12c7d21a21cab7c584bb2aee2e81ee2f2482c"
+    },
+    "contrasts.csv": {
+      "bytes": 8186,
+      "sha256": "2f464119e6d59eba4226c2681f8ef35fbcf1aa56c92354ad7ecca1fab75eec07"
+    },
+    "evidence_matrix.csv": {
+      "bytes": 5079,
+      "sha256": "0db65b713b4eb60ebd464a5c718c6c124321b4ced10defbf23721fa12cbc2366"
+    },
+    "joint_metrics.csv": {
+      "bytes": 1375,
+      "sha256": "b6728d38a74c492033936796cef71d641cb2773b763264f5b183357cd3b4ef3e"
+    },
+    "outcome_effects.csv": {
+      "bytes": 19112,
+      "sha256": "65a222c5aec30d0c17336cd7bffec9b4717653dab250227aa8ed01d38b134cdb"
+    },
+    "outcome_metrics.csv": {
+      "bytes": 14926,
+      "sha256": "bc2f90a8f5155a473f34a8f540ccf10944ff1a716d16099bcc1c627039dc3b88"
+    },
+    "pattern_distribution.csv": {
+      "bytes": 19725,
+      "sha256": "0eaa71727faaabef3ae75c6fe70c2a32128fafc44ece144072816b6e0e1e453e"
+    },
+    "probability_tail.csv": {
+      "bytes": 600,
+      "sha256": "8f4162bd40c2530b283c09493ebffe2672e70ea2b187db4741c3bc07cd5de655"
+    },
+    "subgroup_metrics.csv": {
+      "bytes": 11148,
+      "sha256": "5d69bd80a4f1fb0cbe073570e3c414bfcb674a7e721bc71e1809265fbb3864a4"
+    },
+    "summary.json": {
+      "bytes": 2805,
+      "sha256": "4bc421728826e18c103208d1a00d1a410fd4eb6716af6243c981ecf702537566"
+    }
+  },
+  "paid_inference_performed": false,
+  "respondent_level_plaintext_in_package": false,
+  "source_provenance": {
+    "claude": {
+      "conditions": [
+        "thin",
+        "rich"
+      ],
+      "model": "anthropic/claude-sonnet-5",
+      "production_run_id": 33286721946,
+      "raw_shards": 20,
+      "respondents": 250
+    },
+    "deepseek_s01": {
+      "artifact_id": 9763493454,
+      "conditions": [
+        "rich_off",
+        "rich_high"
+      ],
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "production_run_id": 33406819430,
+      "provider": "OpenInference FP8",
+      "respondents": 1000
+    },
+    "deepseek_s03": {
+      "artifact_id": 9765135867,
+      "conditions": [
+        "thin_off",
+        "thin_high"
+      ],
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "production_run_id": 33406819430,
+      "provider": "OpenInference FP8",
+      "respondents": 1000
+    },
+    "luna": {
+      "conditions": [
+        "thin",
+        "rich"
+      ],
+      "model": "openai/gpt-5.6-luna",
+      "production_run_id": 33284028509,
+      "raw_aggregate_artifact_id": 9723896566,
+      "respondents": 1000
+    },
+    "qwen": {
+      "artifact_id": 9750263228,
+      "conditions": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "model": "qwen/qwen3.8-27b",
+      "respondents": 1000
+    },
+    "supervised_baselines": {
+      "artifact_id": 9766982262,
+      "outer_folds": 10,
+      "respondents": 1000,
+      "workflow_run_id": 33415197392
+    }
+  },
+  "status": "FINAL_PUBLICATION_SAFE_AGGREGATE_PACKAGE"
+}
