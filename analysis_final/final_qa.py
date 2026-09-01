@@ -41,6 +41,8 @@ FIGURE_NAMES = [
 REQUIRED_DOCS = [
     "README.md",
     "CITATION.cff",
+    "LICENSE",
+    "LICENSE-CONTENT.md",
     "analysis_final/README.md",
     "docs/PRE_MANUSCRIPT_AUDIT.md",
     "docs/FINAL_PROVENANCE.md",
@@ -146,6 +148,9 @@ def check_docs() -> None:
 
     root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "CITATION.cff" in root_readme
+    assert "LICENSE-CONTENT.md" in root_readme
+    assert "MIT License" in root_readme
+    assert "CC BY 4.0" in root_readme
     assert "docs/PRE_MANUSCRIPT_AUDIT.md" in root_readme
     assert "docs/RELEASE_NOTES_v1.0.0.md" in root_readme
     assert "docs/RELEASE_CHECKLIST.md" in root_readme
@@ -156,6 +161,15 @@ def check_docs() -> None:
     assert "cff-version: 1.2.0" in citation
     assert "version: 1.0.0" in citation
     assert "repository-code:" in citation
+
+    software_license = (ROOT / "LICENSE").read_text(encoding="utf-8")
+    assert software_license.startswith("MIT License")
+    assert "Copyright (c) 2026 Abdullah X" in software_license
+
+    content_license = (ROOT / "LICENSE-CONTENT.md").read_text(encoding="utf-8")
+    assert "Creative Commons Attribution 4.0 International License" in content_license
+    assert "creativecommons.org/licenses/by/4.0/" in content_license
+    assert "Government of India CAMS microdata" in content_license
 
 
 def check_privacy() -> None:
