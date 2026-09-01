@@ -142,6 +142,8 @@ Historical CMS and PLFS branches remain in the repository for provenance and eng
 LLM_Persona/
 ├── README.md
 ├── CITATION.cff                    # machine-readable citation metadata
+├── LICENSE                         # MIT license for software code
+├── LICENSE-CONTENT.md              # CC BY 4.0 for original research content
 ├── requirements.txt
 ├── analysis_final/
 │   ├── results/                    # canonical aggregate publication results
@@ -201,4 +203,9 @@ The ready-to-paste release notes and release checklist are in [`docs/RELEASE_NOT
 
 ## License
 
-No explicit reuse license has been selected yet. Public visibility alone does not grant an open-source reuse license. A license should be chosen before publishing the `v1.0.0` release.
+This repository uses a mixed license:
+
+- **Software code:** MIT License. See [`LICENSE`](LICENSE).
+- **Original documentation, publication figures, aggregate publication result tables, and derived aggregate summaries:** Creative Commons Attribution 4.0 International (CC BY 4.0). See [`LICENSE-CONTENT.md`](LICENSE-CONTENT.md).
+
+These licenses do not relicense Government of India CAMS microdata, encrypted respondent-level artifacts, model-provider outputs, or other third-party/restricted material. Those remain subject to their original terms and restrictions.
