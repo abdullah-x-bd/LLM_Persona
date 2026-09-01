@@ -7,6 +7,8 @@ on:
       - '.github/workflows/final_qa.yml'
       - 'analysis_final/**'
       - 'CITATION.cff'
+      - 'LICENSE'
+      - 'LICENSE-CONTENT.md'
       - 'docs/PRE_MANUSCRIPT_AUDIT.md'
       - 'docs/FINAL_PROVENANCE.md'
       - 'docs/REPO_MAP.md'
