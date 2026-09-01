@@ -55,6 +55,15 @@ The final result and figure packages are checksum-manifested. No paid LLM infere
 - `docs/FINAL_PROVENANCE.md` — authoritative provenance
 - `studies/registry.json` — frozen study boundary
 
+## Licensing
+
+This release uses a mixed license:
+
+- software code is licensed under the MIT License in `LICENSE`;
+- original documentation, publication figures, aggregate publication result tables, and derived aggregate summaries are licensed under Creative Commons Attribution 4.0 International (CC BY 4.0) in `LICENSE-CONTENT.md`.
+
+These licenses do not relicense Government of India CAMS microdata, encrypted respondent-level artifacts, model-provider outputs, or third-party/restricted material. Those remain subject to their original terms and restrictions.
+
 ## Citation
 
 See `CITATION.cff` for machine-readable citation metadata.
