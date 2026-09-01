@@ -1,0 +1,74 @@
+name: Final zero-inference unified analysis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/final_unified_analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy pandas cryptography scikit-learn
+      - name: Prove zero-inference analysis source
+        run: |
+          python -m py_compile analysis_final/final_unified.py analysis_final/unified_analysis.py
+          ! grep -E '/chat/completions|requests\.post|urlopen\(|OpenRouter.*request' analysis_final/final_unified.py
+      - name: Download authoritative artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qwen /tmp/s01 /tmp/s03 /tmp/baseline /tmp/final
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9750263228/zip > /tmp/qwen.zip
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9763493454/zip > /tmp/s01.zip
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9765135867/zip > /tmp/s03.zip
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9766982262/zip > /tmp/baseline.zip
+          unzip -q /tmp/qwen.zip -d /tmp/qwen
+          unzip -q /tmp/s01.zip -d /tmp/s01
+          unzip -q /tmp/s03.zip -d /tmp/s03
+          unzip -q /tmp/baseline.zip -d /tmp/baseline
+          test -f /tmp/qwen/raw_results.enc.b64
+          test -f /tmp/s01/raw_results.enc.b64
+          test -f /tmp/s03/raw_results.enc.b64
+          test -f /tmp/baseline/baseline_metrics.csv
+      - name: Run harmonized synthesis and 10000 paired bootstraps
+        run: |
+          python analysis_final/final_unified.py \
+            --qwen-dir /tmp/qwen \
+            --s01-dir /tmp/s01 \
+            --s03-dir /tmp/s03 \
+            --baseline-dir /tmp/baseline \
+            --outdir /tmp/final
+      - name: Integrity gate
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          s=json.load(open('/tmp/final/summary.json'))
+          assert s['status']=='MANUSCRIPT_READY_ZERO_INFERENCE_SYNTHESIS'
+          assert s['paid_inference'] is False
+          assert s['respondent_plaintext_emitted'] is False
+          assert all(v==1000 for v in s['raw_reanalysis_cells'].values())
+          c=pd.read_csv('/tmp/final/contrasts.csv')
+          assert 'deepseek_minus_qwen_reasoning_effect' in set(c.contrast)
+          assert 'deepseek_persona_x_reasoning_interaction' in set(c.contrast)
+          print(c[c.contrast.isin(['qwen_medium_minus_off','deepseek_rich_high_minus_off','deepseek_minus_qwen_reasoning_effect'])].to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-unified-zero-inference
+          path: /tmp/final/
+          retention-days: 90
