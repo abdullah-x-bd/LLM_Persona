@@ -7,11 +7,12 @@ Recommended release title: **v1.0.0 — Frozen synthetic-population fidelity res
 ## Before creating the tag
 
 - Confirm `main` contains the final public-facing README and `CITATION.cff`.
+- Confirm `LICENSE` contains the MIT License for software code.
+- Confirm `LICENSE-CONTENT.md` applies CC BY 4.0 to original documentation, figures, and aggregate publication outputs while excluding third-party and restricted material.
 - Confirm `analysis_final/results/MANIFEST.json` and `analysis_final/figures/MANIFEST.json` are present.
 - Run or confirm the final repository QA workflow is green on the release commit.
 - Confirm no respondent-level plaintext, raw result JSONL, API secret, or decrypted historical artifact has entered the durable publication directories.
 - Confirm the frozen study registry still marks S01 and S03 complete, S02 and S05 archived unrun, and S04 scientifically blocked.
-- Decide and add an explicit reuse license before publishing the release. Do not infer a license merely from public repository visibility.
 
 ## Recommended GitHub “About” metadata
 
@@ -48,8 +49,10 @@ Leave the project website blank until there is a stable article, DOI, or project
 - When the companion article receives a final DOI, add it as the preferred citation without altering the frozen `v1.0.0` evidence package.
 - Any later scientific extension should receive a new version and its own provenance record rather than silently changing the meaning of `v1.0.0`.
 
-## Licensing decision still required
+## Licensing
 
-No explicit repository license has been selected in the current tree. This is intentionally left for the repository owner because selecting a license changes legal reuse rights.
+The licensing decision is complete:
 
-A common research-code arrangement is a permissive software license for code and a separate content license for original documentation/figures, but the exact choice should be made deliberately before release.
+- software code is licensed under the MIT License in `LICENSE`;
+- original documentation, publication figures, aggregate publication result tables, and derived aggregate summaries are licensed under CC BY 4.0 in `LICENSE-CONTENT.md`;
+- Government of India CAMS microdata, encrypted respondent-level artifacts, model-provider outputs, and third-party/restricted material are explicitly excluded from those grants.
