@@ -34,7 +34,25 @@ jobs:
       - name: Install QA dependency
         run: pip install pandas
       - name: Run final repository freeze gate
-        run: python analysis_final/final_qa.py
+        id: freeze_gate
+        shell: bash
+        run: |
+          set +e
+          python analysis_final/final_qa.py > final_qa.log 2>&1
+          code=$?
+          cat final_qa.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload QA diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-research-artifact-qa-log
+          path: final_qa.log
+          retention-days: 30
+          if-no-files-found: error
+      - name: Enforce repository freeze gate
+        run: test "${{ steps.freeze_gate.outputs.exit_code }}" = "0"
       - name: Confirm zero-inference final package
         run: |
           set -euo pipefail
