@@ -1,0 +1,43 @@
+name: Final manuscript repository QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/final_qa.yml'
+      - 'analysis_final/**'
+      - 'docs/PRE_MANUSCRIPT_AUDIT.md'
+      - 'docs/FINAL_PROVENANCE.md'
+      - 'docs/REPO_MAP.md'
+      - 'docs/REPO_WIDE_RESULTS_SYNTHESIS.md'
+      - 'README.md'
+      - 'studies/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install QA dependency
+        run: pip install pandas
+      - name: Run final repository freeze gate
+        run: python analysis_final/final_qa.py
+      - name: Confirm zero-inference final package
+        run: |
+          set -euo pipefail
+          ! grep -R -E '/chat/completions|requests\.post|urlopen\(' \
+            analysis_final/unified_analysis.py \
+            analysis_final/recover_legacy.py \
+            analysis_final/finalize_outputs.py \
+            analysis_final/final_qa.py
+          test -d analysis_final/results
+          test -d analysis_final/figures
+          echo FINAL_MANUSCRIPT_REPOSITORY_FREEZE_PASS
