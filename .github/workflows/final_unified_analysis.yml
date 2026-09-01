@@ -41,6 +41,7 @@ jobs:
           unzip -q /tmp/s01.zip -d /tmp/s01
           unzip -q /tmp/s03.zip -d /tmp/s03
           unzip -q /tmp/baseline.zip -d /tmp/baseline
+          if [ -d /tmp/s03/s03_fast ]; then cp /tmp/s03/s03_fast/* /tmp/s03/; fi
           test -f /tmp/qwen/raw_results.enc.b64
           test -f /tmp/s01/raw_results.enc.b64
           test -f /tmp/s03/raw_results.enc.b64
