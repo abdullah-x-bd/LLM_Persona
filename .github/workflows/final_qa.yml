@@ -1,4 +1,4 @@
-name: Final manuscript repository QA
+name: Final research artifact QA
 
 on:
   push:
@@ -9,12 +9,12 @@ on:
       - 'CITATION.cff'
       - 'LICENSE'
       - 'LICENSE-CONTENT.md'
-      - 'docs/PRE_MANUSCRIPT_AUDIT.md'
+      - 'docs/SCIENTIFIC_FREEZE.md'
       - 'docs/FINAL_PROVENANCE.md'
       - 'docs/REPO_MAP.md'
       - 'docs/REPO_WIDE_RESULTS_SYNTHESIS.md'
       - 'docs/RELEASE_NOTES_v1.0.0.md'
-      - 'docs/RELEASE_CHECKLIST.md'
+      - 'docs/RELEASE_v1.0.0.md'
       - 'README.md'
       - 'studies/**'
   workflow_dispatch:
@@ -45,4 +45,4 @@ jobs:
             analysis_final/final_qa.py
           test -d analysis_final/results
           test -d analysis_final/figures
-          echo FINAL_MANUSCRIPT_REPOSITORY_FREEZE_PASS
+          echo FINAL_RESEARCH_ARTIFACT_FREEZE_PASS
