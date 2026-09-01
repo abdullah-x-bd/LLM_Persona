@@ -6,10 +6,13 @@ on:
     paths:
       - '.github/workflows/final_qa.yml'
       - 'analysis_final/**'
+      - 'CITATION.cff'
       - 'docs/PRE_MANUSCRIPT_AUDIT.md'
       - 'docs/FINAL_PROVENANCE.md'
       - 'docs/REPO_MAP.md'
       - 'docs/REPO_WIDE_RESULTS_SYNTHESIS.md'
+      - 'docs/RELEASE_NOTES_v1.0.0.md'
+      - 'docs/RELEASE_CHECKLIST.md'
       - 'README.md'
       - 'studies/**'
   workflow_dispatch:
