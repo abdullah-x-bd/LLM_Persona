@@ -144,11 +144,13 @@ jobs:
       - name: Commit publication-safe aggregate package
         run: |
           set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B final-results origin/main
           rm -rf analysis_final/results
           mkdir -p analysis_final/results
           cp -a /tmp/final/. analysis_final/results/
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add analysis_final/results
           if ! git diff --cached --quiet; then
             git commit -m 'Freeze four-family aggregate results'
